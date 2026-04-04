@@ -78,7 +78,7 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
     const totalResults: any[] = [];
     
     // 1. Text Extraction (Phase 1)
-    const resumeData: { name: string; text: string }[] = [];
+    let resumeData: { name: string; text: string }[] = [];
     for (const file of files) {
       try {
         const text = await ProcessingService.extractText(file.buffer);

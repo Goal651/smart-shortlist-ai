@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 
 export class ProcessingService {
   /**
@@ -8,9 +8,11 @@ export class ProcessingService {
    */
   static async extractText(buffer: Buffer): Promise<string> {
     try {
-      const data = await (pdfParse as unknown as (buf: Buffer) => Promise<{ text: string }>)(buffer);
+      const pdf = new PDFParse(new Uint8Array(buffer));
+      await pdf.load();
+      const text = await pdf.getText();
       // Clean up text: remove multiple newlines and extra spaces
-      return data.text.replace(/\s+/g, ' ').trim();
+      return text.replace(/\s+/g, ' ').trim();
     } catch (error) {
       console.error('Error extracting text from PDF:', error);
       throw new Error('Failed to extract text from PDF');
