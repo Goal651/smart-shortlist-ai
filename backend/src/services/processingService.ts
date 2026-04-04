@@ -1,5 +1,3 @@
-import pdf = require('pdf-parse');
-
 export class ProcessingService {
   /**
    * Extracts text from a PDF Buffer in-memory.
@@ -8,7 +6,10 @@ export class ProcessingService {
    */
   static async extractText(buffer: Buffer): Promise<string> {
     try {
-      const data = await pdf(buffer);
+      // Dynamic import for ESM-compatible pdf-parse v2
+      const pdfParse = await import('pdf-parse');
+      const pdfFn = pdfParse.default ?? pdfParse;
+      const data = await (pdfFn as any)(buffer);
       // Clean up text: remove multiple newlines and extra spaces
       return data.text.replace(/\s+/g, ' ').trim();
     } catch (error) {
