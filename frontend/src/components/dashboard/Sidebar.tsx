@@ -52,7 +52,7 @@ export function Sidebar() {
                   : "text-gray-600 hover:bg-gray-50 active:scale-95"
               )}
             >
-              <item.icon className={cn("h-6 w-6", !isActive && "group-hover:text-gray-900 transition-colors")} />
+              <item.icon className={cn("h-4 w-4", !isActive && "group-hover:text-gray-900 transition-colors")} />
               <span className="text-[13px] font-medium">{item.label}</span>
             </Link>
           );
