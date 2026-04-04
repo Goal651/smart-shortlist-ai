@@ -12,6 +12,8 @@ export interface ScreeningResult {
   top_skills: string[];
   gaps: string[];
   status: 'Shortlisted' | 'Review' | 'Rejected';
+  email?: string;
+  linkedin?: string;
 }
 
 export class GeminiService {
@@ -19,9 +21,14 @@ export class GeminiService {
    * Screens a batch of resumes against a job description.
    * @param jobDescription The JD text.
    * @param resumes Array of extracted resume texts.
+   * @param retryCount Number of retries for rate limits.
    * @returns Array of screening results.
    */
-  static async screenResumes(jobDescription: string, resumes: string[]): Promise<ScreeningResult[]> {
+  static async screenResumes(
+    jobDescription: string, 
+    resumes: string[], 
+    retryCount = 0
+  ): Promise<ScreeningResult[]> {
     const prompt = `
       You are an Expert Technical Recruiter at Umurava, specializing in the Rwandan and African tech market.
       Your task is to screen the following resumes against the Job Description (JD) provided.
@@ -39,11 +46,14 @@ export class GeminiService {
          - Project Evidence (30%)
          - Experience Relevance (20%)
       3. For the "Rwandan Context", prioritize candidates with experience in local tech ecosystems, regional projects, or education from institutions like CMU-Africa or ALU if present.
-      4. Return a JSON array where each object corresponds to a resume in order.
-      5. The response must follow this JSON schema strictly:
+      4. Extract the "email" and "linkedin" URL if available.
+      5. Return a JSON array where each object corresponds to a resume in order.
+      6. The response must follow this JSON schema strictly:
       [
         {
           "name": "Full Name",
+          "email": "email@example.com",
+          "linkedin": "https://linkedin.com/in/username",
           "score": 85,
           "summary": "2-sentence justification string.",
           "top_skills": ["Skill1", "Skill2"],
@@ -65,11 +75,22 @@ export class GeminiService {
       const response = await result.response;
       const text = response.text().trim();
       
-      // Remove any potential markdown formatting that Gemini might add
-      const cleanJson = text.replace(/```json|```/g, '').trim();
+      // Robust JSON extraction
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('No valid JSON array found in Gemini response');
+      }
       
-      return JSON.parse(cleanJson);
-    } catch (error) {
+      return JSON.parse(jsonMatch[0]);
+    } catch (error: any) {
+      // Handle Rate Limits (429)
+      if (error?.status === 429 && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 2000;
+        console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+        await new Promise(res => setTimeout(res, delay));
+        return this.screenResumes(jobDescription, resumes, retryCount + 1);
+      }
+
       console.error('Gemini API Error:', error);
       throw new Error('AI Screening failed');
     }

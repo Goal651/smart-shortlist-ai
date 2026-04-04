@@ -8,6 +8,8 @@ export interface ICandidate extends Document {
   top_skills: string[];
   gaps: string[];
   status: 'Shortlisted' | 'Review' | 'Rejected';
+  email?: string;
+  linkedin?: string;
   extractedText: string;
   createdAt: Date;
 }
@@ -24,6 +26,8 @@ const CandidateSchema: Schema = new Schema({
     enum: ['Shortlisted', 'Review', 'Rejected'], 
     default: 'Review' 
   },
+  email: { type: String },
+  linkedin: { type: String },
   extractedText: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
