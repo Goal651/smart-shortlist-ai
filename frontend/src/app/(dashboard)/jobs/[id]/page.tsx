@@ -1,8 +1,8 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { ChevronLeft, Search, Star, TrendingUp, Users, CheckCircle2, Sparkles, FileText, Info, Loader2, AlertCircle, ListFilter } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ChevronLeft, Search, Star, TrendingUp, Users, CheckCircle2, Sparkles, FileText, Info, Loader2, AlertCircle, ListFilter, Upload } from "lucide-react";
 import { Typography } from "@/components/ui/Typography";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -12,90 +12,95 @@ import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 import { Pagination } from "@/components/ui/Pagination";
+import { useScreening, useFileUpload } from "@/hooks/useApi";
+import { CandidateWithUI } from "@/types/api";
 
-const topCandidatesData: any[] = [
-  { 
-    id: "1", 
-    name: "Alice Mukamana", 
-    score: 92, 
-    status: "Shortlisted", 
-    date: "2026-03-29", 
-    source: "Umurava Profile",
-    aiReasoning: {
-      strengths: ["Exceptional React/TypeScript architecture", "Proven leadership in frontend teams", "Strong performance optimization track record"],
-      gaps: ["Limited experience with specific GraphQL sub-libraries"],
-      risks: ["Higher salary expectations than mid-range"],
-      recommendation: "Top-tier candidate. Immediate move to technical interview recommended."
-    }
+// Helper function to convert CandidateWithUI to Applicant format
+const convertToApplicant = (candidate: CandidateWithUI) => ({
+  id: candidate._id,
+  name: candidate.name,
+  score: candidate.score,
+  status: candidate.status,
+  date: new Date(candidate.createdAt).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).replace(/\//g, '-'),
+  source: (candidate.source as any) || "External PDF",
+  aiReasoning: {
+    strengths: candidate.aiReasoning.strengths,
+    gaps: candidate.aiReasoning.gaps,
+    risks: candidate.aiReasoning.risks || [],
+    recommendation: candidate.aiReasoning.recommendation,
   },
-  { 
-    id: "2", 
-    name: "Patrick Niyonzima", 
-    score: 88, 
-    status: "Shortlisted", 
-    date: "2026-03-27", 
-    source: "External PDF",
-    aiReasoning: {
-      strengths: ["Strong UI/UX systems knowledge", "Solid enterprise React experience"],
-      gaps: ["Lacks unit testing leadership"],
-      risks: ["Currently based in a different timezone"],
-      recommendation: "Strong match for design-system oriented engineering tasks."
-    }
-  },
-  { 
-    id: "3", 
-    name: "Jean Baptiste", 
-    score: 85, 
-    status: "Shortlisted", 
-    date: "2026-03-29", 
-    source: "Umurava Profile",
-    aiReasoning: {
-       strengths: ["Clean code champion", "Good test coverage logic", "Collaborative mindset"],
-       gaps: ["Limited cloud dev experience"],
-       risks: ["None identified"],
-       recommendation: "Strong candidate for middle-to-senior role transition."
-    }
-  },
-  { id: "7", name: "Grace Uwimana", score: 84, status: "Shortlisted", date: "2026-03-28", source: "CSV Upload" },
-  { id: "8", name: "Innocent N.", score: 83, status: "Shortlisted", date: "2026-03-25", source: "Umurava Profile" },
-  { id: "9", name: "Solange U.", score: 82, status: "Shortlisted", date: "2026-03-24", source: "External PDF" },
-  { id: "10", name: "Kevin G.", score: 81, status: "Shortlisted", date: "2026-03-23", source: "Umurava Profile" },
-  { id: "11", name: "Fifi M.", score: 80, status: "Shortlisted", date: "2026-03-22", source: "Umurava Profile" },
-  { id: "12", name: "Didier K.", score: 79, status: "Shortlisted", date: "2026-03-21", source: "CSV Upload" },
-  { id: "13", name: "Clarisse U.", score: 78, status: "Shortlisted", date: "2026-03-20", source: "External PDF" },
-];
-
-const allApplicantsData = [
-  ...topCandidatesData,
-  { id: "4", name: "Grace Uwimana", score: 78, status: "Reviewing", date: "2026-03-28", source: "Umurava Profile" },
-  { id: "5", name: "Diane Iradukunda", score: 65, status: "Reviewing", date: "2026-03-29", source: "External PDF" },
-  { id: "6", name: "John Doe", score: 45, status: "Rejected", date: "2026-03-25", source: "CSV Upload" },
-];
+});
 
 export default function JobDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isScreening, setIsScreening] = useState(false);
-  const [hasScreened, setHasScreened] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const jobId = params.id as string;
+  const { candidates, topCandidates, stats, loading, error, runGeminiScreening, clearError } = useScreening(jobId);
+  const { validateFiles } = useFileUpload();
+
+  const hasScreened = candidates.length > 0;
 
   const handleOpenModal = (applicant: any) => {
     setSelectedApplicant(applicant);
     setIsModalOpen(true);
   };
 
-  const handleRunScreening = () => {
-    setIsScreening(true);
-    setTimeout(() => {
-      setIsScreening(false);
-      setHasScreened(true);
-    }, 2500);
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    
+    const validation = validateFiles(files);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
+    try {
+      await runGeminiScreening(jobId, files);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Screening failed:', error);
+      alert('Screening failed. Please try again.');
+    }
   };
+
+  const handleRunScreening = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Convert candidates to applicant format
+  const applicantData = candidates.map(convertToApplicant);
+  const filteredApplicants = applicantData.filter((c: any) =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.source ?? "")
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
+  // Filter by status
+  const statusFilteredApplicants = selectedStatus === "all" 
+    ? filteredApplicants 
+    : filteredApplicants.filter((c: any) => {
+        const statusMap: { [key: string]: string } = {
+          "shortlisted": "Shortlisted",
+          "reviewing": "Review", 
+          "rejected": "Rejected"
+        };
+        return c.status === statusMap[selectedStatus];
+      });
 
   const statusOptions = [
     { label: "All Applicants", value: "all" },
@@ -135,13 +140,13 @@ export default function JobDetailsPage() {
            </Button>
            <Button 
             onClick={handleRunScreening}
-            disabled={isScreening || hasScreened}
+            disabled={loading.screening}
             className={cn(
               "h-11 shadow-none px-8 font-medium transition-none gap-2",
               hasScreened && "bg-green-50 text-green-600 border border-green-100 hover:bg-green-50 cursor-default"
             )}
            >
-              {isScreening ? (
+              {loading.screening ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Screening...
@@ -158,6 +163,14 @@ export default function JobDetailsPage() {
                 </>
               )}
            </Button>
+           <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </div>
       </div>
 
@@ -189,7 +202,7 @@ export default function JobDetailsPage() {
 
             {/* AI Analysis Report Card */}
             {hasScreened ? (
-              <Card className="p-6 border-primary/20 bg-primary/[0.02] space-y-6 animate-in slide-in-from-top-4 duration-500 shadow-none">
+              <Card className="p-6 border-primary/20 bg-primary/2 space-y-6 animate-in slide-in-from-top-4 duration-500 shadow-none">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -206,10 +219,10 @@ export default function JobDetailsPage() {
                     <div className="space-y-3">
                        <Typography variant="body" className="font-medium text-xs text-gray-900 tracking-widest bg-white border border-gray-100 w-fit px-3 py-1 rounded-lg">Top High-Match Grid</Typography>
                        <div className="grid grid-cols-5 md:grid-cols-10 lg:grid-cols-5 gap-2.5">
-                          {topCandidatesData.slice(0, 10).map((c) => (
+                          {topCandidates.slice(0, 10).map((c) => (
                             <button 
-                              key={c.id} 
-                              onClick={() => handleOpenModal(c)}
+                              key={c._id} 
+                              onClick={() => handleOpenModal(convertToApplicant(c))}
                               className="h-10 w-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-[11px] font-medium text-primary hover:border-primary/40 hover:bg-primary/5 transition-all active:scale-95 transition-none shadow-none" 
                               title={c.name}
                             >
@@ -255,9 +268,9 @@ export default function JobDetailsPage() {
          {/* Right Side: Stats Panel */}
          <div className="space-y-4">
             {[
-               { label: "Total Applicants", value: "24", icon: Users, color: "blue", active: true },
-               { label: "Shortlisted", value: hasScreened ? "10" : "0", icon: CheckCircle2, color: "green", active: hasScreened },
-               { label: "Avg AI Score", value: hasScreened ? "82%" : "--", icon: TrendingUp, color: "orange", active: hasScreened }
+               { label: "Total Applicants", value: stats.total.toString(), icon: Users, color: "blue", active: true },
+               { label: "Shortlisted", value: stats.shortlisted.toString(), icon: CheckCircle2, color: "green", active: hasScreened },
+               { label: "Avg AI Score", value: hasScreened ? `${stats.averageScore}%` : "--", icon: TrendingUp, color: "orange", active: hasScreened }
             ].map((stat, i) => (
                <Card key={i} className={cn(
                  "p-5 flex items-center space-x-4 border-gray-100 transition-all duration-700 shadow-none",
@@ -301,10 +314,12 @@ export default function JobDetailsPage() {
            </div>
            
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-              {topCandidatesData.slice(0, 10).map((candidate) => (
+              {topCandidates.slice(0, 10).map((candidate) => {
+                const applicant = convertToApplicant(candidate);
+                return (
                 <button 
-                  key={candidate.id} 
-                  onClick={() => handleOpenModal(candidate)}
+                  key={candidate._id} 
+                  onClick={() => handleOpenModal(applicant)}
                   className="p-5 bg-white border border-gray-100 rounded-2xl flex flex-col items-center text-center space-y-3 transition-all group transition-none active:scale-95 shadow-none hover:border-primary/20"
                 >
                    <div className="h-12 w-12 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
@@ -318,7 +333,8 @@ export default function JobDetailsPage() {
                       High Match
                    </span>
                 </button>
-              ))}
+                );
+              })}
            </div>
         </div>
       )}
@@ -354,10 +370,10 @@ export default function JobDetailsPage() {
          </div>
 
          <div className="space-y-4">
-            <ApplicantTable applicants={allApplicantsData} onView={handleOpenModal} />
+            <ApplicantTable applicants={statusFilteredApplicants} onView={handleOpenModal} />
             <Pagination 
               currentPage={currentPage} 
-              totalPages={3} 
+              totalPages={Math.max(1, Math.ceil(statusFilteredApplicants.length / 10))} 
               onPageChange={setCurrentPage}
               className="border border-gray-100 border-x-0 bg-gray-50/30"
             />

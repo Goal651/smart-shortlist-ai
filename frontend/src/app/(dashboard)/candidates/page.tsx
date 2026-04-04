@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Users, 
   Search, 
@@ -26,93 +26,28 @@ import { ApplicantTable, type Applicant } from "@/components/dashboard/Applicant
 import { Pagination } from "@/components/ui/Pagination";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { cn } from "@/lib/utils";
+import { useJobs } from "@/hooks/useApi";
+import { CandidateWithUI } from "@/types/api";
 
-const allCandidatesData: Applicant[] = [
-  { 
-    id: "1", 
-    name: "Alice Mukamana", 
-    score: 92, 
-    status: "Shortlisted", 
-    date: "2026-03-29", 
-    source: "Umurava Profile", 
-    aiReasoning: { 
-      strengths: ["Expert React Lead", "System Design expert", "Senior stakeholder experience"], 
-      gaps: ["N/A"], 
-      risks: ["Expects higher range salary"], 
-      recommendation: "Exceptional candidate. Hire immediately for Lead Frontend." 
-    } 
+// Helper function to convert CandidateWithUI to Applicant format
+const convertToApplicant = (candidate: CandidateWithUI): Applicant => ({
+  id: candidate._id,
+  name: candidate.name,
+  score: candidate.score,
+  status: candidate.status,
+  date: new Date(candidate.createdAt).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).replace(/\//g, '-'),
+  source: candidate.source as Applicant["source"],
+  aiReasoning: {
+    strengths: candidate.aiReasoning.strengths,
+    gaps: candidate.aiReasoning.gaps,
+    risks: candidate.aiReasoning.risks || [],
+    recommendation: candidate.aiReasoning.recommendation,
   },
-  { 
-    id: "2", 
-    name: "Patrick Niyonzima", 
-    score: 88, 
-    status: "Shortlisted", 
-    date: "2026-03-27", 
-    source: "External PDF", 
-    aiReasoning: { 
-      strengths: ["UI/UX depth", "Next.js performance architect", "Proven open-source contributor"], 
-      gaps: ["Limited Node.js backend experience"], 
-      risks: ["N/A"], 
-      recommendation: "Strong UI Engineer. Excellent for Next.js focus." 
-    } 
-  },
-  { 
-    id: "3", 
-    name: "Jean Baptiste", 
-    score: 85, 
-    status: "Shortlisted", 
-    date: "2026-03-29", 
-    source: "Umurava Profile",
-    aiReasoning: {
-      strengths: ["Solid JS foundation", "Self-starter initiative"],
-      gaps: ["Needs more experience with Redux Toolkit"],
-      risks: ["N/A"],
-      recommendation: "Good mid-level potential. Hire for Frontend Specialist role."
-    }
-  },
-  { 
-    id: "4", 
-    name: "Grace Uwimana", 
-    score: 84, 
-    status: "Reviewing", 
-    date: "2026-03-28", 
-    source: "CSV Upload",
-    aiReasoning: {
-      strengths: ["Excellent documentation", "Strong accessibility knowledge"],
-      gaps: ["No direct experience with Tailwind CSS"],
-      risks: ["Limited large-scale project experience"],
-      recommendation: "Promising candidate for a growth-oriented team."
-    }
-  },
-  { 
-    id: "5", 
-    name: "Kevin G.", 
-    score: 81, 
-    status: "Reviewing", 
-    date: "2026-04-03", 
-    source: "External PDF",
-    aiReasoning: {
-      strengths: ["Highly disciplined coder", "Effective unit testing"],
-      gaps: ["N/A"],
-      risks: ["None identified"],
-      recommendation: "Reliable engineer. Move to technical interview."
-    }
-  },
-  { 
-    id: "6", 
-    name: "Diane Iradukunda", 
-    score: 78, 
-    status: "Reviewing", 
-    date: "2026-03-29", 
-    source: "Umurava Profile",
-    aiReasoning: {
-      strengths: ["Passionate about UI/UX", "Modern React patterns"],
-      gaps: ["Junior-level system design knowledge"],
-      risks: ["Slow development speed observed in portfolio"],
-      recommendation: "Junior/Mid candidate. Good cultural fit."
-    }
-  },
-];
+});
 
 const sourceOptions = [
   { label: "All sourcing channels", value: "all" },
@@ -121,10 +56,10 @@ const sourceOptions = [
 ];
 
 export default function CandidatesPage() {
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [allCandidates, setAllCandidates] = useState<CandidateWithUI[]>([]);
 
   const [selectedApplicant, setSelectedApplicant] =
     useState<Applicant | null>(null);
@@ -132,12 +67,32 @@ export default function CandidatesPage() {
   const [isModalOpen, setIsModalOpen] =
     useState(false);
 
+  // Fetch all candidates from all jobs
+  useEffect(() => {
+    // This would need to be implemented in the backend or we can aggregate from all jobs
+    // For now, we'll use the context to get candidates from all jobs
+    // This is a placeholder - in a real implementation, you might want a dedicated endpoint
+    const fetchAllCandidates = async () => {
+      try {
+        // For now, we'll keep this empty until we have a way to fetch all candidates
+        // This could be implemented by fetching all jobs and then their candidates
+        setAllCandidates([]);
+      } catch (error) {
+        console.error('Failed to fetch all candidates:', error);
+      }
+    };
+
+    fetchAllCandidates();
+  }, []);
+
   const handleOpenModal = (applicant: Applicant) => {
     setSelectedApplicant(applicant);
     setIsModalOpen(true);
   };
 
-  const filteredApplicants = allCandidatesData.filter(c =>
+  // Convert candidates to Applicant format and filter
+  const applicantData = allCandidates.map(convertToApplicant);
+  const filteredApplicants = applicantData.filter((c: Applicant) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.source ?? "")
       .toLowerCase()
@@ -181,10 +136,32 @@ export default function CandidatesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
         {[
-          { label: "Total candidates", value: "250+", icon: Users, color: "blue" },
-          { label: "High match", value: "42", icon: Star, color: "orange" },
-          { label: "Verification rate", value: "94%", icon: ShieldCheck, color: "green" },
-          { label: "Average pool score", value: "78.4", icon: TrendingUp, color: "purple" }
+          { 
+            label: "Total candidates", 
+            value: applicantData.length.toString() || "0", 
+            icon: Users, 
+            color: "blue" 
+          },
+          { 
+            label: "High match", 
+            value: applicantData.filter(c => c.score > 75).length.toString() || "0", 
+            icon: Star, 
+            color: "orange" 
+          },
+          { 
+            label: "Verification rate", 
+            value: applicantData.length > 0 ? "94%" : "0%", 
+            icon: ShieldCheck, 
+            color: "green" 
+          },
+          { 
+            label: "Average pool score", 
+            value: applicantData.length > 0 
+              ? (applicantData.reduce((sum, c) => sum + c.score, 0) / applicantData.length).toFixed(1)
+              : "0.0", 
+            icon: TrendingUp, 
+            color: "purple" 
+          }
         ].map((stat, i) => (
 
           <Card
@@ -235,7 +212,7 @@ export default function CandidatesPage() {
 
           <Pagination
             currentPage={currentPage}
-            totalPages={8}
+            totalPages={Math.max(1, Math.ceil(filteredApplicants.length / 10))}
             onPageChange={setCurrentPage}
             className="shadow-none border-0"
           />
