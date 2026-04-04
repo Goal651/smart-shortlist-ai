@@ -47,6 +47,19 @@ app.post('/api/jobs', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/jobs
+ * List all job postings
+ */
+app.get('/api/jobs', async (req: Request, res: Response) => {
+  try {
+    const jobs = await Job.find().sort({ createdAt: -1 });
+    res.json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch jobs" });
+  }
+});
+
+/**
  * FR2 & FR4: High-Performance Multi-Upload + AI Logic & Batching
  * POST /api/jobs/:jobId/screen
  */
@@ -90,6 +103,8 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
             const candidate = new Candidate({
               jobId: job._id,
               name: res.name || batch[index].name,
+              email: res.email,
+              linkedin: res.linkedin,
               score: res.score,
               summary: res.summary,
               top_skills: res.top_skills,
@@ -106,8 +121,12 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
       }
     }
 
+    // FR3: In-Memory Processing (Privacy-First)
+    // Clear heavy data from memory explicitly
+    (resumeData as any) = null;
+
     res.json({ 
-      processed: resumeData.length,
+      processed: files.length,
       candidates: totalResults.sort((a, b) => b.score - a.score) 
     });
 
@@ -124,10 +143,24 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
 app.get('/api/jobs/:jobId/candidates', async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    const candidates = await Candidate.find({ jobId }).sort({ score: -1 });
+    const candidates = await Candidate.find({ jobId }).select('-extractedText').sort({ score: -1 });
     res.json(candidates);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch candidates" });
+  }
+});
+
+/**
+ * GET /api/candidates/:id
+ * Get full candidate details (including AI reasoning and gaps)
+ */
+app.get('/api/candidates/:id', async (req: Request, res: Response) => {
+  try {
+    const candidate = await Candidate.findById(req.params.id);
+    if (!candidate) return res.status(404).json({ error: "Candidate not found" });
+    res.json(candidate);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch candidate details" });
   }
 });
 
