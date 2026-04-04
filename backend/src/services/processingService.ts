@@ -9,10 +9,9 @@ export class ProcessingService {
   static async extractText(buffer: Buffer): Promise<string> {
     try {
       const pdf = new PDFParse(new Uint8Array(buffer));
-      await pdf.load();
-      const text = await pdf.getText();
+      const result = await pdf.getText();
       // Clean up text: remove multiple newlines and extra spaces
-      return text.replace(/\s+/g, ' ').trim();
+      return result.text.replace(/\s+/g, ' ').trim();
     } catch (error) {
       console.error('Error extracting text from PDF:', error);
       throw new Error('Failed to extract text from PDF');
