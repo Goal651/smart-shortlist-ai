@@ -26,7 +26,7 @@ export function StatCard({
       </div>
       
       <div className="space-y-1">
-        <Typography variant="h2" className="text-3xl font-semibold text-gray-900 leading-none tracking-tight">
+        <Typography variant="h2" className="text-3xl font-medium text-gray-900 leading-none tracking-tight">
           {value}
         </Typography>
         <Typography variant="small" className="text-sm text-gray-600 font-medium">
@@ -36,7 +36,7 @@ export function StatCard({
 
       {trend && (
         <div className="pt-2">
-           <Typography variant="small" className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
+           <Typography variant="small" className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
             {trend}
            </Typography>
         </div>

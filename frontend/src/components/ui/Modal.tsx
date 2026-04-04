@@ -55,11 +55,11 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
         {/* Header */}
         <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50">
           {title ? (
-            <Typography variant="h3" className="text-xl font-bold text-gray-900">{title}</Typography>
+            <Typography variant="h3" className="text-xl font-medium text-gray-900">{title}</Typography>
           ) : <div />}
           <button 
             onClick={onClose}
-            className="p-2 rounded-xl border border-gray-100 text-gray-400 hover:bg-gray-50 hover:text-gray-900 transition-all"
+            className="p-2 rounded-xl border border-gray-100 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
           >
             <X className="h-5 w-5" />
           </button>

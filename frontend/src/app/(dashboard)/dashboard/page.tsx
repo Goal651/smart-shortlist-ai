@@ -8,31 +8,35 @@ import {
   TrendingUp,
   Plus,
   Upload,
-  Search
+  Search,
+  ArrowUpRight,
+  Sparkles
 } from "lucide-react";
 import { Typography } from "@/components/ui/Typography";
 import { Button } from "@/components/ui/Button";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentJobsTable } from "@/components/dashboard/RecentJobsTable";
 import { RecentCandidatesTable } from "@/components/dashboard/RecentCandidatesTable";
 import { JobCard } from "@/components/dashboard/JobCard";
 import { Select } from "@/components/ui/Select";
 import { Pagination } from "@/components/ui/Pagination";
 import { useState } from "react";
+import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
+import { Card } from "@/components/ui/Card";
+import { cn } from "@/lib/utils";
 
 const stats = [
-  { label: "Total Jobs", value: "6", icon: Briefcase, iconBgColor: "bg-blue-50", iconColor: "text-blue-500" },
-  { label: "Total Candidates", value: "8", icon: Users, iconBgColor: "bg-purple-50", iconColor: "text-purple-500" },
-  { label: "Shortlisted", value: "4", icon: CheckCircle2, iconBgColor: "bg-green-50", iconColor: "text-green-500" },
-  { label: "Rejected", value: "1", icon: XCircle, iconBgColor: "bg-red-50", iconColor: "text-red-500" },
-  { label: "Avg Score", value: "76", icon: TrendingUp, iconBgColor: "bg-orange-50", iconColor: "text-orange-500" },
+  { label: "Total jobs", value: "6", icon: Briefcase, color: "blue" },
+  { label: "Total candidates", value: "250+", icon: Users, color: "purple" },
+  { label: "AI matches", value: "42", icon: CheckCircle2, color: "green" },
+  { label: "Waitlisted", value: "12", icon: XCircle, color: "red" },
+  { label: "Average score", value: "78%", icon: TrendingUp, color: "orange" },
 ];
 
 const jobOptions = [
-  { label: "Frontend Engineer", value: "sfe" },
-  { label: "Backend Developer", value: "bd" },
-  { label: "UI/UX Designer", value: "uud" },
-  { label: "DevOps Engineer", value: "de" },
+  { label: "Frontend engineer", value: "sfe" },
+  { label: "Backend developer", value: "bd" },
+  { label: "UI/UX designer", value: "uud" },
+  { label: "DevOps engineer", value: "de" },
 ];
 
 const statusOptions = [
@@ -46,104 +50,119 @@ export default function DashboardPage() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [candidatePage, setCandidatePage] = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   return (
-    <div className="space-y-10 bg- animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Header section with Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <Typography variant="h1" className="text-xl font-semibold tracking-tight text-gray-900">Dashboard</Typography>
-          <Typography variant="caption" className="text-gray-600 font-medium">Overview of your recruitment activity</Typography>
+          <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">Statistics summary</Typography>
+          <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Overview of your global talent acquisition metrics</Typography>
         </div>
         <div className="flex items-center space-x-3">
-           <Button variant="outline" className="h-11 shadow-none border-gray-100 hover:border-primary/20">
+           <Button variant="outline" className="h-11 shadow-none border-gray-100 font-medium px-6 text-gray-600 transition-none">
              <Upload className="h-4 w-4 mr-2" />
-             Upload
+             Import batch
            </Button>
-           <Button className="h-11 shadow-none gap-2 font-semibold px-6">
+           <Button onClick={() => setIsCreateModalOpen(true)} className="h-11 shadow-none gap-2 font-medium px-6 transition-none">
              <Plus className="h-5 w-5" />
-             Create Job
+             Create new job
            </Button>
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Synchronized Statistics Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {stats.map((stat, i) => (
-          <StatCard key={i} {...stat} />
+          <Card key={i} className="p-5 flex items-center space-x-4 border-gray-100 shadow-none">
+             <div className={cn(
+                "h-11 w-11 rounded-xl flex items-center justify-center border transition-all",
+                stat.color === 'blue' ? "bg-blue-50 border-blue-100 text-blue-600" :
+                stat.color === 'purple' ? "bg-purple-50 border-purple-100 text-purple-600" :
+                stat.color === 'green' ? "bg-green-50 border-green-100 text-green-600" :
+                stat.color === 'red' ? "bg-red-50 border-red-100 text-red-600" :
+                "bg-orange-50 border-orange-100 text-orange-600"
+             )}>
+                <stat.icon className="h-5 w-5" />
+             </div>
+             <div className="space-y-1">
+                <Typography variant="h2" className="text-lg font-medium text-gray-900 leading-none">{stat.value}</Typography>
+                <Typography variant="caption" className="text-[10px] text-gray-600 font-medium pt-0.5 block leading-none">{stat.label}</Typography>
+             </div>
+          </Card>
         ))}
       </div>
 
-      {/* Recent Jobs Header with Search and Filter */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-         <Typography variant="h2" className="text-xl font-semibold text-gray-900">Recent Jobs</Typography>
-         
-         <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="relative w-full sm:w-80">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600" />
-                <input 
-                  type="text" 
-                  placeholder="Search jobs..." 
-                  className="w-full h-12 bg-white border border-gray-100 rounded-xl pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all font-work-sans"
-                />
-            </div>
-            <div className="w-full sm:w-56">
-                <Select 
-                  options={jobOptions} 
-                  value={selectedJob} 
-                  onChange={setSelectedJob} 
-                  placeholder="Filter by Job" 
-                />
-            </div>
-         </div>
-      </div>
-
-      {/* Tables Section */}
-      <div className="grid grid-cols-1 gap-10">
-        {/* Recent Jobs */}
-        <div className="space-y-4">
-           <RecentJobsTable />
-           <Pagination 
-             currentPage={currentPage} 
-             totalPages={3} 
-             onPageChange={setCurrentPage} 
-           />
-        </div>
-
-        {/* Recent Candidates Header with Search and Filter */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-6">
-           <Typography variant="h2" className="text-xl font-semibold text-gray-900">Recent Candidates</Typography>
-           
-           <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-              <div className="relative w-full sm:w-80">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600" />
-                  <input 
-                    type="text" 
-                    placeholder="Search candidates..." 
-                    className="w-full h-12 bg-white border border-gray-100 rounded-xl pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all font-work-sans"
-                  />
+      <div className="grid grid-cols-1 gap-12">
+        <div className="space-y-6">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center space-x-2">
+                 <Briefcase className="h-5 w-5 text-gray-900" />
+                 <Typography variant="h2" className="text-xl font-medium text-gray-900">Active job boards</Typography>
               </div>
-              <div className="w-full sm:w-56">
-                  <Select 
-                    options={statusOptions} 
-                    value={selectedStatus} 
-                    onChange={setSelectedStatus} 
-                    placeholder="Filter by Status" 
-                  />
-              </div>
+           </div>
+
+           <div className="space-y-4">
+              <Card className="border-gray-50 overflow-hidden shadow-none">
+                 <RecentJobsTable />
+                 <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
+                    <Pagination 
+                      currentPage={currentPage} 
+                      totalPages={3} 
+                      onPageChange={setCurrentPage} 
+                      className="shadow-none border-0"
+                    />
+                 </div>
+              </Card>
            </div>
         </div>
 
-        {/* Recent Candidates */}
-        <div className="space-y-4">
-          <RecentCandidatesTable />
-           <Pagination 
-             currentPage={candidatePage} 
-             totalPages={2} 
-             onPageChange={setCandidatePage} 
-           />
+        {/* AI Insight banner */}
+        <Card className="p-6 bg-primary/[0.03] border-primary/20 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-none">
+           <div className="flex items-center space-x-4">
+              <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-primary border border-primary/10 group transition-all">
+                 <Sparkles className="h-6 w-6 fill-primary/5 group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="space-y-1">
+                 <Typography variant="body" className="font-medium text-gray-900 leading-tight">AI talent insight</Typography>
+                 <p className="text-xs text-gray-600 font-medium leading-relaxed italic">
+                    "Your 'Senior frontend' pool has grown by 15% this week with an average match score of 82%."
+                 </p>
+              </div>
+           </div>
+           <Button variant="outline" className="h-10 px-6 border-primary/20 text-primary hover:bg-primary/5 shadow-none font-medium text-xs transition-none">View full report</Button>
+        </Card>
+
+        {/* Recent analyzed candidates */}
+        <div className="space-y-6">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center space-x-2">
+                 <Users className="h-5 w-5 text-gray-900" />
+                 <Typography variant="h2" className="text-xl font-medium text-gray-900">Recently analyzed candidates</Typography>
+              </div>
+           </div>
+
+           <div className="space-y-4">
+              <Card className="border-gray-50 overflow-hidden shadow-none">
+                 <RecentCandidatesTable />
+                 <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
+                    <Pagination 
+                      currentPage={candidatePage} 
+                      totalPages={2} 
+                      onPageChange={setCandidatePage} 
+                      className="shadow-none border-0"
+                    />
+                 </div>
+              </Card>
+           </div>
         </div>
       </div>
+
+      <CreateJobModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </div>
   );
 }

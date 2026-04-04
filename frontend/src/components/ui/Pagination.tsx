@@ -32,7 +32,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
             key={page}
             onClick={() => onPageChange(page)}
             className={cn(
-              "h-9 w-9 rounded-xl text-sm font-semibold transition-all",
+              "h-9 w-9 rounded-xl text-sm font-medium transition-all",
               currentPage === page 
                 ? "bg-primary text-white shadow-none" 
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border border-transparent hover:border-gray-100"

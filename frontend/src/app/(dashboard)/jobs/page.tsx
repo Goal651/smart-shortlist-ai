@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { JobCard } from "@/components/dashboard/JobCard";
 import { Pagination } from "@/components/ui/Pagination";
+import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 
 const jobTypeOptions = [
   { label: "All Types", value: "all" },
@@ -59,16 +60,20 @@ export default function JobsPage() {
   const [jobType, setJobType] = useState("all");
   const [status, setStatus] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <Typography variant="h1" className="text-xl font-semibold tracking-tight text-gray-900">Jobs</Typography>
+          <Typography variant="h1" className="text-xl font-medium tracking-tight text-gray-900">Jobs</Typography>
           <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Manage and create job opportunities</Typography>
         </div>
-        <Button className="h-11 shadow-none gap-2 font-semibold px-6 transition-none">
+        <Button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="h-11 shadow-none gap-2 font-medium px-6 transition-none"
+        >
           <Plus className="h-5 w-5" />
           Create Job
         </Button>
@@ -123,6 +128,11 @@ export default function JobsPage() {
           className="border border-gray-100 rounded-2xl shadow-none"
         />
       </div>
+
+      <CreateJobModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
     </div>
   );
 }

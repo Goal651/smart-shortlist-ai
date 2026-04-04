@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -8,11 +9,10 @@ import {
   Briefcase, 
   Upload, 
   Users, 
-  MessageSquare, 
-  BarChart3, 
   Settings,
   ChevronLeft,
-  LogOut
+  LogOut,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Typography } from "@/components/ui/Typography";
@@ -20,10 +20,8 @@ import { Typography } from "@/components/ui/Typography";
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Jobs", href: "/jobs", icon: Briefcase },
-  { label: "Upload", href: "/upload", icon: Upload },
   { label: "Candidates", href: "/candidates", icon: Users },
-  { label: "AI Chat", href: "/ai-chat", icon: MessageSquare },
-  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Upload", href: "/upload", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -31,17 +29,13 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-gray-100 bg-white flex flex-col h-screen sticky top-0">
+    <aside className="w-64 border-r border-gray-100 bg-white flex flex-col h-screen sticky top-0 transition-all">
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="relative h-16 w-24">
+          <div className="relative h-16 w-24 translate-x-1">
             <Image src="/umurava.png" alt="Logo" fill className="object-contain" />
           </div>
-         
         </div>
-        <button className="p-1.5 hover:bg-gray-50 rounded-lg border border-gray-100 text-gray-600">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
       </div>
 
       <nav className="flex-1 px-4 space-y-0.5 mt-2">
@@ -52,29 +46,33 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-none",
+                "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all transition-none group",
                 isActive 
                   ? "bg-primary text-white font-medium" 
-                  : "text-gray-700"
+                  : "text-gray-600 hover:bg-gray-50 active:scale-95"
               )}
             >
-              <item.icon className={cn("h-5 w-5", isActive ? "text-white" : "text-gray-600")} />
-              <span className="text-[13px] font-medium font-work-sans">{item.label}</span>
+              <item.icon className={cn("h-6 w-6", !isActive && "group-hover:text-gray-900 transition-colors")} />
+              <span className="text-[13px] font-medium">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-50 mt-auto">
-        <div className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors group">
-          <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-semibold">
-            HR
+      <div className="p-4 border-t border-gray-50 mt-auto bg-gray-50/20">
+        <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-100 group transition-all">
+          <div className="flex items-center space-x-3 min-w-0">
+             <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white text-xs font-medium border border-primary/20">
+               HR
+             </div>
+             <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-gray-900 truncate">HR Manager</p>
+                <p className="text-[12px] text-gray-600 font-medium truncate leading-none pt-1">Corporate organization</p>
+             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate font-dm-sans">HR Manager</p>
-            <p className="text-xs text-gray-600 truncate font-work-sans">hr@umurava.africa</p>
-          </div>
-          <LogOut className="h-4 w-4 text-gray-600 transition-colors" />
+          <button className="text-gray-600 hover:text-red-500 transition-colors p-1.5 flex items-center justify-center">
+             <LogOut className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </aside>

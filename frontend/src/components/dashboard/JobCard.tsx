@@ -1,4 +1,4 @@
-import { MapPin, Clock, Laptop, Bookmark } from "lucide-react";
+import { MapPin, Clock, Laptop, Bookmark, Briefcase } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Typography } from "@/components/ui/Typography";
@@ -31,14 +31,14 @@ export function JobCard({
       <div className="flex items-start justify-between">
         <div className="flex space-x-4">
           <div className="h-14 w-14 bg-primary rounded-xl flex items-center justify-center p-3">
-             <Image src="/umurava.png" alt="Company Logo" width={32} height={32} className="object-contain" />
+            <Briefcase color="white" className="h-10 w-10" />
           </div>
           <div className="space-y-1">
              <Typography variant="h3" className="text-xl">{title}</Typography>
              <Typography variant="body" className="text-primary font-medium">{company}</Typography>
           </div>
         </div>
-        <span className="px-4 py-1 bg-green-50 text-green-600 rounded-full text-xs font-semibold border border-green-100">
+        <span className="px-4 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium border border-green-100">
            Active
         </span>
       </div>
@@ -66,7 +66,7 @@ export function JobCard({
         <Typography variant="small" className="text-gray-600 font-medium">{postedAt}</Typography>
         <div className="flex space-x-3">
            <Link href={`/jobs/${id}`}>
-              <Button className="font-semibold px-8 h-10 shadow-none">View Details</Button>
+              <Button className="font-medium px-8 h-10 shadow-none">View Details</Button>
            </Link>
            <button className="p-2.5 rounded-lg border border-gray-100 transition-all text-gray-600">
              <Bookmark className="h-5 w-5" />
