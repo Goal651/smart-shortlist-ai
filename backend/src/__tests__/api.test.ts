@@ -23,6 +23,11 @@ describe('API Endpoints', () => {
     jest.clearAllMocks();
   });
 
+  afterAll(async () => {
+    // Close mongoose connection opened by index.ts
+    await mongoose.disconnect();
+  });
+
   describe('GET /health', () => {
     it('should return health status', async () => {
       const res = await request(app).get('/health');
