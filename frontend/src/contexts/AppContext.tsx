@@ -125,14 +125,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchJobs: async () => {
       try {
         dispatch({ type: 'SET_LOADING', payload: { jobs: true } });
-        const response = await fetch(`${API_BASE_URL}/jobs`);
+        const response = await jobService.getAllJobs();
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch jobs: ${response.statusText}`);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to fetch jobs');
         }
         
-        const jobs: Job[] = await response.json();
-        dispatch({ type: 'SET_JOBS', payload: jobs });
+        dispatch({ type: 'SET_JOBS', payload: response.data });
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to fetch jobs' });
       }
@@ -141,22 +140,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     createJob: async (job) => {
       try {
         dispatch({ type: 'SET_LOADING', payload: { jobs: true } });
-        const response = await fetch(`${API_BASE_URL}/jobs`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(job),
-        });
+        const response = await jobService.createJob(job);
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to create job: ${response.statusText}`);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to create job');
         }
 
-        const newJob: Job = await response.json();
-        dispatch({ type: 'ADD_JOB', payload: newJob });
-        return newJob;
+        dispatch({ type: 'ADD_JOB', payload: response.data });
+        return response.data;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create job' });
         throw error;
@@ -166,14 +157,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchCandidates: async (jobId: string) => {
       try {
         dispatch({ type: 'SET_LOADING', payload: { candidates: true } });
-        const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/candidates`);
+        const response = await jobService.getJobCandidates(jobId);
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch candidates: ${response.statusText}`);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to fetch candidates');
         }
         
-        const candidates: Candidate[] = await response.json();
-        const candidatesWithUI = candidates.map(mapCandidateToUI);
+        const candidatesWithUI = response.data.map(mapCandidateToUI);
         dispatch({ type: 'SET_CANDIDATES', payload: candidatesWithUI });
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to fetch candidates' });
@@ -184,27 +174,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         dispatch({ type: 'SET_LOADING', payload: { screening: true } });
         
-        const formData = new FormData();
-        files.forEach((file) => {
-          formData.append('resumes', file);
-        });
+        const response = await jobService.screenResumes(jobId, files);
 
-        const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/screen`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Screening failed: ${response.statusText}`);
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Screening failed');
         }
 
-        const screeningResult: ScreeningResponse = await response.json();
-        
         // Add new candidates to the existing list
-        dispatch({ type: 'ADD_CANDIDATES', payload: screeningResult.candidates });
+        dispatch({ type: 'ADD_CANDIDATES', payload: response.data.candidates });
         
-        return screeningResult;
+        return response.data;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Screening failed' });
         throw error;
