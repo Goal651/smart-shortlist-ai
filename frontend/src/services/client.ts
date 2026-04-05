@@ -148,6 +148,20 @@ class ApiClient {
         };
     }
 
+    async postFormData<T>(endpoint: string, formData: FormData, options?: { timeout?: number }): Promise<ApiResponse<T>> {
+        const response = await this.axiosInstance.post<T>(endpoint, formData, {
+            timeout: options?.timeout,
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
+    }
+
     async put<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.put<T>(endpoint, data, {
             timeout: options?.timeout

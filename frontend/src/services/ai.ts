@@ -17,10 +17,10 @@ class AIService {
       formData.append('resumes', file);
     });
 
-    const response = await apiClient.post<ScreeningResponse>(
+    const response = await apiClient.postFormData<ScreeningResponse>(
       API_ENDPOINTS.JOB.SCREEN(jobId),
       formData,
-      { timeout: 30000 } // 30 second timeout for screening
+      { timeout: 30000 }
     );
     return response;
   }
