@@ -96,43 +96,11 @@ class ApiClient {
         }
     }
 
-    // private async handleUnauthorized() {
-    //   try {
-
-    //     if (this.refreshAttempts >= this.maxRefreshAttempts) {
-    //       this.logout();
-    //       throw new Error('Max refresh attempts exceeded');
-    //     }
-    //     this.refreshAttempts++;
-    //     const refreshToken = await SecureStore.getItemAsync('refresh_token');
-    //     if (!refreshToken) {
-    //       throw new Error('No refresh token available');
-    //     }
-    //     const response = await axios.post(
-    //       `${API_CONFIG.BASE_URL}/api/${API_CONFIG.API_VERSION}/auth/refresh`,
-    //       { refreshToken },
-    //       { headers: { 'Content-Type': 'application/json' } }
-    //     );
-    //     if (response.status === HTTP_STATUS.OK) {
-    //       const { accessToken } = response.data;
-    //       await SecureStore.setItemAsync('access_token', accessToken);
-    //       this.refreshAttempts = 0;
-    //     } else {
-    //       throw new Error('Refresh token invalid or expired');
-    //     }
-    //   } catch (error) {
-    //     this.logout();
-    //     throw error;
-    //   }
-    // }
 
     public async logout() {
         try {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user');
-            localStorage.removeItem('farmer');
-            localStorage.removeItem('supplier');
-            localStorage.removeItem('buyer');
             localStorage.clear();
         } catch {
         } finally {
