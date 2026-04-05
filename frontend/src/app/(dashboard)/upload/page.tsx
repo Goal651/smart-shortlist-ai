@@ -294,8 +294,8 @@ export default function UploadPage() {
                                    </td>
                                    <td className="px-5 py-4">
                                       <Typography variant="body" className="text-[11px] text-gray-600 leading-normal italic line-clamp-1 max-w-[280px]">
-                                         {candidate.aiReasoning?.recommendation 
-                                           ? `"${candidate.aiReasoning.recommendation.split('.')[0]}."`
+                                         {candidate.summary 
+                                           ? `"${candidate.summary.split('.')[0]}."`
                                            : "AI analysis not available"
                                          }
                                       </Typography>
@@ -554,8 +554,8 @@ export default function UploadPage() {
                                     </td>
                                     <td className="px-5 py-4">
                                        <div className="flex flex-wrap gap-1.5">
-                                          {candidate.skills && candidate.skills.length > 0 
-                                            ? candidate.skills.slice(0, 3).map((skill: string, skillIndex: number) => (
+                                          {candidate.top_skills && candidate.top_skills.length > 0 
+                                            ? candidate.top_skills.slice(0, 3).map((skill: string, skillIndex: number) => (
                                                <span key={skillIndex} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-[9px] font-medium text-gray-600 rounded-lg">{skill}</span>
                                             ))
                                             : <span className="text-[10px] text-gray-500">No skills extracted</span>

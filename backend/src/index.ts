@@ -103,7 +103,7 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
     for (const file of files) {
       console.log('Processing file:', file.originalname, '(size:', file.buffer.length, 'bytes)');
       try {
-        const text = await ProcessingService.extractText(file.buffer);
+        const text = await ProcessingService.extractText(file.buffer, file.originalname);
         console.log('Extracted text length:', text.length, 'characters');
         console.log('First 100 chars:', text.substring(0, 100) + '...');
         resumeData.push({ name: file.originalname, text });
