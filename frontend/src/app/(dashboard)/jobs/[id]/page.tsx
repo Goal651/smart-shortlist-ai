@@ -81,11 +81,11 @@ export default function JobDetailsPage() {
       }
     }
 
-    // Check file types (PDF, DOC, DOCX)
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    // Check file types (PDF, DOC, DOCX, TXT)
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
     for (const file of files) {
       if (!allowedTypes.includes(file.type)) {
-        alert(`File ${file.name} is not a supported format. Please use PDF, DOC, or DOCX.`);
+        alert(`File ${file.name} is not a supported format. Please use PDF, DOC, DOCX, or TXT.`);
         return;
       }
     }

@@ -83,8 +83,9 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
       try {
         const text = await ProcessingService.extractText(file.buffer);
         resumeData.push({ name: file.originalname, text });
+        console.log(`✅ Successfully extracted text from: ${file.originalname}`);
       } catch (err) {
-        console.warn(`Skipping corrupt file: ${file.originalname}`);
+        console.warn(`⚠️ Skipping corrupt file: ${file.originalname} `);
       }
     }
 

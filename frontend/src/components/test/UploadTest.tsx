@@ -44,24 +44,49 @@ export default function UploadTest() {
       return;
     }
 
+    // Check file types (PDF, DOC, DOCX, TXT)
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    for (const file of selectedFiles) {
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File ${file.name} is not a supported format. Please use PDF, DOC, DOCX, or TXT.`);
+        return;
+      }
+    }
+
     try {
       setTestResults(`🚀 Starting upload of ${selectedFiles.length} files...`);
       
       const result = await screenResumes(testJobId, selectedFiles);
       
-      setTestResults(`✅ Upload successful! Processed ${result.processed} files, created ${result.candidates.length} candidates`);
+      if (result.processed > 0) {
+        if (result.candidates.length > 0) {
+          setTestResults(`✅ Upload successful! Processed ${result.processed} files, created ${result.candidates.length} candidates`);
+        } else {
+          setTestResults(`⚠️ Files processed (${result.processed}) but no candidates created. This might indicate:
+          • Resume text couldn't be extracted
+          • AI couldn't parse candidate information
+          • File format issues
+          Check browser console for details.`);
+        }
+      } else {
+        setTestResults(`❌ No files were processed successfully`);
+      }
       
       // Log candidate details for testing
       console.log('Screening Results:', result);
-      result.candidates.forEach((candidate, index) => {
-        console.log(`Candidate ${index + 1}:`, {
-          name: candidate.name,
-          score: candidate.score,
-          status: candidate.status,
-          skills: candidate.top_skills,
-          summary: candidate.summary
+      if (result.candidates.length > 0) {
+        result.candidates.forEach((candidate, index) => {
+          console.log(`Candidate ${index + 1}:`, {
+            name: candidate.name,
+            score: candidate.score,
+            status: candidate.status,
+            skills: candidate.top_skills,
+            summary: candidate.summary
+          });
         });
-      });
+      } else {
+        console.log('No candidates created - check if resume content was properly extracted');
+      }
     } catch (error) {
       setTestResults(`❌ Upload failed: ${error}`);
       console.error('Upload error:', error);
@@ -112,7 +137,7 @@ export default function UploadTest() {
           <input
             type="file"
             multiple
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.txt"
             onChange={handleFileSelect}
             className="w-full p-3 border border-gray-300 rounded-lg"
           />
