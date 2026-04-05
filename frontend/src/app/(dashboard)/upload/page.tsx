@@ -30,63 +30,6 @@ import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { useJobs, useAI } from '@/hooks/useApi';
 
-const mockSystemJobs = [
-  { label: "Senior Frontend Engineer", value: "job-1" },
-  { label: "Backend Developer", value: "job-2" },
-  { label: "UI/UX Designer", value: "job-3" },
-];
-
-const mockRankedCandidates = [
-  { 
-    id: "1", 
-    name: "Jean Paul Niyonzima", 
-    email: "jp.n@example.com", 
-    score: 94, 
-    status: "Shortlisted",
-    date: "2026-04-03",
-    source: "External PDF",
-    skills: ["React", "TypeScript", "Next.js", "Node.js"],
-    aiReasoning: {
-      strengths: ["Exceptional architecture knowledge", "Strong leadership experience", "Next.js performance specialist"],
-      gaps: ["No direct experience with the specific styling library (Tailwind)"],
-      risks: ["Higher-than-average salary history"],
-      recommendation: "Top-tier candidate. Move to final interview immediately."
-    }
-  },
-  { 
-    id: "2", 
-    name: "Sarah Uwimana", 
-    email: "s.uwi@example.com", 
-    score: 88, 
-    status: "Shortlisted",
-    date: "2026-04-03",
-    source: "LinkedIn CSV",
-    skills: ["Next.js", "Tailwind CSS", "Figma", "Redux"],
-    aiReasoning: {
-      strengths: ["Solid design implementation skills", "Proficient in modern state management"],
-      gaps: ["Limited backend/API architecture knowledge"],
-      risks: ["None identified"],
-      recommendation: "Excellent fit for UI Engineering and Design System roles."
-    }
-  },
-  { 
-    id: "3", 
-    name: "Kevin Gakwaya", 
-    email: "k.gak@example.com", 
-    score: 72, 
-    status: "Reviewing",
-    date: "2026-04-03",
-    source: "External PDF",
-    skills: ["Python", "Django", "PostgreSQL", "React"],
-    aiReasoning: {
-      strengths: ["Strong backend capabilities", "Full-stack mindset"],
-      gaps: ["Lacks lead experience for a Senior Frontend role"],
-      risks: ["Primarily a Python developer, might take longer to onboard on TS/React patterns"],
-      recommendation: "Potential fit for Full-Stack positions, but moderate risk for pure Frontend Lead."
-    }
-  },
-];
-
 export default function UploadPage() {
   const [jobSource, setJobSource] = useState<"system" | "custom">("system");
   const [customJDMode, setCustomJDMode] = useState<"paste" | "upload">("paste");

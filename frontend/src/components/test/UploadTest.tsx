@@ -22,7 +22,14 @@ export default function UploadTest() {
     try {
       const jobData = {
         title: 'Test Job for Upload Integration',
-        description: 'This is a comprehensive test job created to validate the upload functionality and AI screening integration. We are looking for candidates who can demonstrate strong technical skills and problem-solving abilities. The ideal candidate should have experience with modern web technologies and be able to work effectively in a team environment. This position offers an excellent opportunity to work on challenging projects and grow professionally while contributing to innovative solutions that make a real impact.'
+        description: 'This is a comprehensive test job created to validate the upload functionality and AI screening integration. We are looking for candidates who can demonstrate strong technical skills and problem-solving abilities. The ideal candidate should have experience with modern web technologies and be able to work effectively in a team environment. This position offers an excellent opportunity to work on challenging projects and grow professionally while contributing to innovative solutions that make a real impact.',
+        location: 'Remote',
+        type: 'Full-time' as const,
+        requirements: {
+          skills: ['React', 'TypeScript', 'Node.js'],
+          minExperience: 2,
+          education: 'Bachelor\'s in Computer Science'
+        }
       };
       
       const newJob = await createJob(jobData);
