@@ -1,5 +1,6 @@
 import { PDFParse } from 'pdf-parse';
 import * as XLSX from 'xlsx';
+import * as mammoth from 'mammoth';
 
 export class ProcessingService {
   /**
@@ -58,15 +59,17 @@ export class ProcessingService {
   }
 
   /**
-   * Extracts text from DOCX Buffer (basic implementation)
+   * Extracts text from DOCX Buffer using mammoth
    */
   private static async extractFromDOCX(buffer: Buffer): Promise<string> {
-    // For now, treat DOCX as text extraction
-    // In a real implementation, you'd use a library like 'mammoth'
-    const text = buffer.toString('utf-8');
-    // Try to extract readable text from DOCX (basic approach)
-    const cleanText = text.replace(/[^\w\s@.-]/g, ' ').replace(/\s+/g, ' ').trim();
-    return cleanText;
+    try {
+      const result = await mammoth.extractRawText({ buffer });
+      const text = result.value;
+      return text.replace(/\s+/g, ' ').trim();
+    } catch (error) {
+      console.error('Error extracting from DOCX:', error);
+      throw new Error('Failed to extract text from DOCX file');
+    }
   }
 
   /**
