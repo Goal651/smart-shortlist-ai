@@ -34,7 +34,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
     title: "",
     description: "",
     location: "Remote",
-    type: "Full-time" as const,
+    type: "Full-time" as 'Full-time' | 'Part-time' | 'Contract' | 'Remote',
     requirements: {
       skills: [] as string[],
       minExperience: 0,

@@ -18,18 +18,36 @@ export function RecentJobsTable() {
 
   useEffect(() => {
     const calculateJobStats = async () => {
-      const jobsStats: JobWithStats[] = jobs.map(job => {
-        // For now, we'll use placeholder stats since we need candidate data
-        // In a real implementation, you'd fetch candidate counts and scores for each job
-        return {
-          _id: job._id,
-          title: job.title,
-          candidates: 0, // Would be calculated from real candidate data
-          avgScore: 0, // Would be calculated from real candidate scores
-          status: "Active", // Would come from job data
-          created: new Date(job.createdAt).toLocaleDateString('en-CA')
-        };
-      });
+      const jobsStats: JobWithStats[] = await Promise.all(jobs.map(async (job) => {
+        // Fetch candidates for this job to calculate real stats
+        try {
+          const response = await fetch(`/api/jobs/${job._id}/candidates`);
+          const jobCandidates = response.ok ? await response.json() : [];
+          
+          const avgScore = jobCandidates.length > 0 
+            ? Math.round(jobCandidates.reduce((sum: number, c: any) => sum + c.score, 0) / jobCandidates.length)
+            : 0;
+          
+          return {
+            _id: job._id,
+            title: job.title,
+            candidates: jobCandidates.length,
+            avgScore,
+            status: "Active",
+            created: new Date(job.createdAt).toLocaleDateString('en-CA')
+          };
+        } catch (error) {
+          console.error(`Failed to fetch candidates for job ${job._id}:`, error);
+          return {
+            _id: job._id,
+            title: job.title,
+            candidates: 0,
+            avgScore: 0,
+            status: "Active",
+            created: new Date(job.createdAt).toLocaleDateString('en-CA')
+          };
+        }
+      }));
       
       setJobsWithStats(jobsStats);
     };
