@@ -143,10 +143,13 @@ export default function UploadPage() {
     setIsScreening(true);
     try {
       // Use the selected system job
-      await screenResumes(selectedJob, files);
+      const response = await screenResumes(selectedJob, files);
       setHasScreened(true);
-      // Note: In a real implementation, you'd get the screened candidates from the response
-      // For now, we'll show a success state
+      
+      // Store the real screened candidates
+      if (response && response.candidates) {
+        setScreenedCandidates(response.candidates);
+      }
     } catch (error) {
       console.error('Screening failed:', error);
       alert('Screening failed. Please try again.');
@@ -178,7 +181,7 @@ export default function UploadPage() {
                 <Typography variant="h1" className="text-2xl font-medium text-gray-900 tracking-tight">External Screening Results</Typography>
                 <div className="flex items-center space-x-2">
                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                   <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Successfully ranked {mockRankedCandidates.length} external candidates</Typography>
+                   <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Successfully ranked {screenedCandidates.length} external candidates</Typography>
                 </div>
              </div>
              <div className="flex items-center space-x-3">
@@ -235,17 +238,17 @@ export default function UploadPage() {
                  </div>
 
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {mockRankedCandidates.slice(0, 3).map((c) => (
+                    {screenedCandidates.slice(0, 3).map((candidate, index) => (
                       <button 
-                        key={c.id} 
-                        onClick={() => handleOpenModal(c)}
+                        key={candidate._id || index} 
+                        onClick={() => handleOpenModal(candidate)}
                         className="p-5 bg-white border border-gray-100 rounded-2xl flex flex-col items-center text-center space-y-3 transition-all hover:border-primary/20 active:scale-95 group transition-none shadow-none"
                       >
                          <div className="h-10 w-10 text-xs font-medium text-primary bg-primary/5 rounded-xl flex items-center justify-center border border-primary/10 group-hover:bg-primary/10 transition-all">
-                            {c.score}
+                            {candidate.score || 'N/A'}
                          </div>
                          <div className="space-y-0.5">
-                            <Typography variant="body" className="text-xs font-medium text-gray-900 truncate w-32">{c.name}</Typography>
+                            <Typography variant="body" className="text-xs font-medium text-gray-900 truncate w-32">{candidate.name}</Typography>
                             <Typography variant="caption" className="text-[10px] text-gray-600 tracking-widest font-medium">Top Match</Typography>
                          </div>
                          <ChevronRight className="h-3 w-3 text-gray-300 group-hover:translate-x-1 transition-transform" />
@@ -253,7 +256,7 @@ export default function UploadPage() {
                     ))}
                     <div className="p-5 border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-2 opacity-50 grayscale">
                        <Typography variant="body" className="text-[10px] font-medium text-gray-600">External Candidates</Typography>
-                       <Typography variant="caption" className="text-[9px] font-medium text-gray-600">Total Pooled: {mockRankedCandidates.length}</Typography>
+                       <Typography variant="caption" className="text-[9px] font-medium text-gray-600">Total Pooled: {screenedCandidates.length}</Typography>
                     </div>
                  </div>
 
@@ -268,35 +271,38 @@ export default function UploadPage() {
                              <tr className="bg-gray-50/50 border-b border-gray-50">
                                 <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest">Candidate</th>
                                 <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest text-center">AI Score</th>
-                                <th className="px-5 py-3 text-[10px) font-medium text-gray-600 tracking-widest">Why Chosen (Verdict)</th>
+                                <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest">Why Chosen (Verdict)</th>
                                 <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest text-right">Action</th>
                              </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
-                             {mockRankedCandidates.map((c) => (
-                                <tr key={c.id} className="group hover:bg-gray-50/30 transition-colors">
+                             {screenedCandidates.map((candidate, index) => (
+                                <tr key={candidate._id || index} className="group hover:bg-gray-50/30 transition-colors">
                                    <td className="px-5 py-4">
                                       <div className="space-y-0.5">
-                                         <Typography variant="body" className="text-xs font-medium text-gray-900">{c.name}</Typography>
-                                         <Typography variant="caption" className="text-[10px] text-gray-600 font-medium">{c.source}</Typography>
+                                         <Typography variant="body" className="text-xs font-medium text-gray-900">{candidate.name}</Typography>
+                                         <Typography variant="caption" className="text-[10px] text-gray-600 font-medium">{candidate.email || 'No email'}</Typography>
                                       </div>
                                    </td>
                                    <td className="px-5 py-4 text-center">
                                       <span className={cn(
-                                         "inline-flex items-center justify-center p-1.5 h-8 w-12 rounded-lg text-xs font-medium border",
-                                         c.score >= 90 ? "bg-green-50 text-green-600 border-green-100" : "bg-orange-50 text-orange-600 border-orange-100"
+                                         "inline-flex items-center justify-center p-1.5 h-8 w-12 rounded-lg text-xs font-medium",
+                                         candidate.score >= 90 ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
                                       )}>
-                                         {c.score}
+                                         {candidate.score || 'N/A'}
                                       </span>
                                    </td>
                                    <td className="px-5 py-4">
                                       <Typography variant="body" className="text-[11px] text-gray-600 leading-normal italic line-clamp-1 max-w-[280px]">
-                                         "{c.aiReasoning.recommendation.split('.')[0]}."
+                                         {candidate.aiReasoning?.recommendation 
+                                           ? `"${candidate.aiReasoning.recommendation.split('.')[0]}."`
+                                           : "AI analysis not available"
+                                         }
                                       </Typography>
                                    </td>
                                    <td className="px-5 py-4 text-right">
                                       <button 
-                                        onClick={() => handleOpenModal(c)}
+                                        onClick={() => handleOpenModal(candidate)}
                                         className="h-8 w-8 rounded-lg border border-gray-100 bg-white flex items-center justify-center text-gray-600 hover:text-primary hover:border-primary/20 transition-all transition-none shadow-none"
                                       >
                                          <ArrowRight className="h-4 w-4" />
@@ -317,7 +323,7 @@ export default function UploadPage() {
                        <Typography variant="h3" className="text-sm font-medium tracking-widest">Gemini Executive Verdict</Typography>
                     </div>
                     <Typography variant="body" className="text-[13px] text-gray-700 leading-relaxed font-medium italic">
-                       "Of the {mockRankedCandidates.length} external candidates pooled, 2 demonstrated exceptional compatibility (&gt;85% matching) with the Senior Frontend requirements. We recommend moving instantly to technical verification for the top rank."
+                       "Of the {screenedCandidates.length} external candidates pooled, {screenedCandidates.filter(c => (c.score || 0) > 85).length} demonstrated exceptional compatibility (&gt;85% matching) with the job requirements. We recommend moving instantly to technical verification for the top rank."
                     </Typography>
                     <div className="space-y-3 pt-2">
                        <div className="space-y-1">
@@ -538,19 +544,22 @@ export default function UploadPage() {
                                   </tr>
                               ))
                            ) : (
-                              mockRankedCandidates.map((c) => (
-                                 <tr key={c.id} className="group hover:bg-gray-50/30 transition-colors">
+                              screenedCandidates.map((candidate, index) => (
+                                 <tr key={candidate._id || index} className="group hover:bg-gray-50/30 transition-colors">
                                     <td className="px-5 py-4">
                                        <div className="space-y-0.5">
-                                          <Typography variant="body" className="text-xs font-medium text-gray-900">{c.name}</Typography>
-                                          <Typography variant="caption" className="text-[10px] text-gray-600 font-medium">{c.email}</Typography>
+                                          <Typography variant="body" className="text-xs font-medium text-gray-900">{candidate.name}</Typography>
+                                          <Typography variant="caption" className="text-[10px] text-gray-600 font-medium">{candidate.email || 'No email'}</Typography>
                                        </div>
                                     </td>
                                     <td className="px-5 py-4">
                                        <div className="flex flex-wrap gap-1.5">
-                                          {c.skills.slice(0, 3).map((s, i) => (
-                                             <span key={i} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-[9px] font-medium text-gray-600 rounded-lg">{s}</span>
-                                          ))}
+                                          {candidate.skills && candidate.skills.length > 0 
+                                            ? candidate.skills.slice(0, 3).map((skill: string, skillIndex: number) => (
+                                               <span key={skillIndex} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-[9px] font-medium text-gray-600 rounded-lg">{skill}</span>
+                                            ))
+                                            : <span className="text-[10px] text-gray-500">No skills extracted</span>
+                                          }
                                        </div>
                                     </td>
                                     <td className="px-5 py-4 text-right">
@@ -570,7 +579,7 @@ export default function UploadPage() {
                      <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100">
                            <AlertCircle className="h-3 w-3" />
-                           <Typography variant="caption" className="text-[10px] font-medium leading-tight">Ready to screen {mockRankedCandidates.length} profiles based on {jobSource === 'system' ? 'the selected system job' : jdFile ? 'the uploaded JD file' : 'your custom text'}.</Typography>
+                           <Typography variant="caption" className="text-[10px] font-medium leading-tight">Ready to screen {files.length} profiles based on {jobSource === 'system' ? 'the selected system job' : jdFile ? 'the uploaded JD file' : 'your custom text'}.</Typography>
                         </div>
                         <Button 
                           onClick={handleRunScreening}
