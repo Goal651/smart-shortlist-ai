@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+
+  database:
+    image: mongo:latest
+    container_name: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=umurava
+      - MONGO_INITDB_DATABASE=umurava-ai
+    ports:
+      - "27000:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
