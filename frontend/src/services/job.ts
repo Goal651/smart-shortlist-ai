@@ -3,6 +3,7 @@ import { Job } from '@/types/Job';
 import { Candidate } from '@/types/Candidate';
 import { CreateJobRequest, ScreeningResponse } from '@/types/request';
 import { apiClient } from './client';
+import { aiService } from './ai';
 import { API_ENDPOINTS } from './constant';
 
 /**
@@ -45,18 +46,7 @@ class JobService {
    * Run AI screening on uploaded resumes for a job
    */
   async screenResumes(jobId: string, files: File[]): Promise<ApiResponse<ScreeningResponse>> {
-    // Create a custom method for multiple file upload since uploadFile only handles single file
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('resumes', file);
-    });
-
-    const response = await apiClient.post<ScreeningResponse>(
-      API_ENDPOINTS.JOB.SCREEN(jobId),
-      formData,
-      { timeout: 30000 } // 30 second timeout for screening
-    );
-    return response;
+    return await aiService.screenResumes(jobId, files);
   }
 
   /**

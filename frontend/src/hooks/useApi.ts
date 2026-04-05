@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Job, CandidateWithUI, CreateJobRequest, ScreeningResponse } from '@/types/api';
+import { ApiResponse } from '@/types/api';
+import { Job } from '@/types/Job';
+import { Candidate } from '@/types/Candidate';
+import { CreateJobRequest, ScreeningResponse } from '@/types/request';
+import { jobService } from '@/services/job';
+import { candidateService } from '@/services/candidate';
+import { aiService } from '@/services/ai';
 
 // Hook for job-related operations
 export const useJobs = () => {

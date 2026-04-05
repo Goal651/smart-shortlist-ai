@@ -1,7 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Job, Candidate, CandidateWithUI, AIReasoning, AppState, AppActions, ScreeningResponse } from '@/types/api';
+import { ApiResponse } from '@/types/api';
+import { AppState, AppActions } from '@/types/contexts';
+import { Job } from '@/types/Job';
+import { Candidate } from '@/types/Candidate';
+import { AIReasoning, CandidateWithUI, ScreeningResponse } from '@/types/request';
+import { jobService } from '@/services/job';
+import { candidateService } from '@/services/candidate';
+import { aiService } from '@/services/ai';
 
 // Helper function to map backend Candidate to frontend CandidateWithUI
 const mapCandidateToUI = (candidate: Candidate): CandidateWithUI => {

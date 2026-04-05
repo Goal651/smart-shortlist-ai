@@ -1,7 +1,7 @@
 // API Configuration Constants
 
 const PROD_SERVER = 'https://api.umuhinzilink.echo-solution.com';
-const DEV_SERVER = 'http://localhost:7022'
+const DEV_SERVER = 'http://localhost:5000'
 
 export const API_CONFIG = {
   BASE_URL: process.env.NODE_ENV === 'development' ? DEV_SERVER : PROD_SERVER,
