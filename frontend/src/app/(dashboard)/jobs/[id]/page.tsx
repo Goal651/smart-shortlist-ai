@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 import { Pagination } from "@/components/ui/Pagination";
-import { useScreening, useFileUpload } from "@/hooks/useApi";
-import { CandidateWithUI } from "@/types/api";
+import { useScreening, useAI } from '@/hooks/useApi';
+import { CandidateWithUI } from '@/types/request';
 
 // Helper function to convert CandidateWithUI to Applicant format
 const convertToApplicant = (candidate: CandidateWithUI) => ({
@@ -48,7 +48,7 @@ export default function JobDetailsPage() {
 
   const jobId = params.id as string;
   const { candidates, topCandidates, stats, loading, error, runGeminiScreening, clearError } = useScreening(jobId);
-  const { validateFiles } = useFileUpload();
+  const { screenResumes, uploadProgress, isUploading } = useAI();
 
   const hasScreened = candidates.length > 0;
 
@@ -60,14 +60,38 @@ export default function JobDetailsPage() {
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     
-    const validation = validateFiles(files);
-    if (!validation.valid) {
-      alert(validation.error);
+    // Basic file validation
+    if (files.length === 0) {
+      alert('Please select files to upload');
       return;
     }
 
+    // Check file count (max 50 as per backend)
+    if (files.length > 50) {
+      alert('Maximum 50 files allowed');
+      return;
+    }
+
+    // Check file size (5MB limit as per backend)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    for (const file of files) {
+      if (file.size > maxSize) {
+        alert(`File ${file.name} is too large. Maximum size is 5MB.`);
+        return;
+      }
+    }
+
+    // Check file types (PDF, DOC, DOCX)
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File ${file.name} is not a supported format. Please use PDF, DOC, or DOCX.`);
+        return;
+      }
+    }
+
     try {
-      await runGeminiScreening(jobId, files);
+      await screenResumes(jobId, files);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -140,16 +164,16 @@ export default function JobDetailsPage() {
            </Button>
            <Button 
             onClick={handleRunScreening}
-            disabled={loading.screening}
+            disabled={isUploading || loading.screening}
             className={cn(
               "h-11 shadow-none px-8 font-medium transition-none gap-2",
               hasScreened && "bg-green-50 text-green-600 border border-green-100 hover:bg-green-50 cursor-default"
             )}
            >
-              {loading.screening ? (
+              {isUploading || loading.screening ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Screening...
+                  {uploadProgress > 0 ? `Uploading... ${uploadProgress}%` : 'Screening...'}
                 </>
               ) : hasScreened ? (
                 <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { ApiResponse } from '@/types/api';
 import { Job } from '@/types/Job';
@@ -14,12 +14,12 @@ import { aiService } from '@/services/ai';
 export const useJobs = () => {
   const { state, actions } = useAppContext();
 
-  // Fetch all jobs
+  // Fetch all jobs using service
   const fetchJobs = useCallback(async () => {
     await actions.fetchJobs();
   }, [actions]);
 
-  // Create a new job
+  // Create a new job using service
   const createJob = useCallback(async (jobData: CreateJobRequest): Promise<Job> => {
     return await actions.createJob(jobData);
   }, [actions]);
@@ -44,12 +44,12 @@ export const useJobs = () => {
 export const useScreening = (jobId?: string) => {
   const { state, actions } = useAppContext();
 
-  // Fetch candidates for a specific job
+  // Fetch candidates for a specific job using service
   const fetchCandidates = useCallback(async (id: string) => {
     await actions.fetchCandidates(id);
   }, [actions]);
 
-  // Run Gemini AI screening on uploaded resumes
+  // Run Gemini AI screening on uploaded resumes using service
   const runGeminiScreening = useCallback(async (id: string, files: File[]): Promise<ScreeningResponse> => {
     return await actions.runGeminiScreening(id, files);
   }, [actions]);
@@ -96,39 +96,109 @@ export const useScreening = (jobId?: string) => {
   };
 };
 
-// Hook for file upload handling
-export const useFileUpload = () => {
-  const validateFiles = (files: File[]): { valid: boolean; error?: string } => {
-    // Check if files are provided
-    if (files.length === 0) {
-      return { valid: false, error: 'No files selected' };
-    }
+// Hook for AI operations and file uploads
+export const useAI = () => {
+  const [uploadProgress, setUploadProgress] = React.useState<number>(0);
+  const [isUploading, setIsUploading] = React.useState(false);
 
-    // Check file count (max 50 as per backend)
-    if (files.length > 50) {
-      return { valid: false, error: 'Maximum 50 files allowed' };
-    }
+  // Upload single file with progress tracking
+  const uploadFile = useCallback(async (
+    endpoint: string,
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => {
+    setIsUploading(true);
+    setUploadProgress(0);
 
-    // Check file size (5MB limit as per backend)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    for (const file of files) {
-      if (file.size > maxSize) {
-        return { valid: false, error: `File ${file.name} is too large. Maximum size is 5MB.` };
+    try {
+      const response = await aiService.uploadFile(
+        endpoint,
+        file,
+        (event) => {
+          const progress = event.total ? Math.round((event.loaded * 100) / event.total) : 0;
+          setUploadProgress(progress);
+          onProgress?.(progress);
+        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Upload failed');
       }
-    }
 
-    // Check file types (PDF, DOC, DOCX)
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    for (const file of files) {
-      if (!allowedTypes.includes(file.type)) {
-        return { valid: false, error: `File ${file.name} is not a supported format. Please use PDF, DOC, or DOCX.` };
+      return response.data;
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }, []);
+
+  // Upload multiple files
+  const uploadMultipleFiles = useCallback(async (
+    endpoint: string,
+    files: File[],
+    onProgress?: (progress: number) => void
+  ) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const response = await aiService.uploadMultipleFiles(
+        endpoint,
+        files,
+        (event) => {
+          const progress = event.total ? Math.round((event.loaded * 100) / event.total) : 0;
+          setUploadProgress(progress);
+          onProgress?.(progress);
+        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Upload failed');
       }
-    }
 
-    return { valid: true };
-  };
+      return response.data;
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }, []);
+
+  // Screen resumes (main AI functionality)
+  const screenResumes = useCallback(async (jobId: string, files: File[]) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const response = await aiService.screenResumes(jobId, files);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Screening failed');
+      }
+
+      return response.data;
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }, []);
+
+  // Upload avatar
+  const uploadAvatar = useCallback(async (file: File) => {
+    return await uploadFile('/upload/user', file);
+  }, [uploadFile]);
+
+  // Upload generic file
+  const uploadGenericFile = useCallback(async (file: File) => {
+    return await uploadFile('/upload', file);
+  }, [uploadFile]);
 
   return {
-    validateFiles,
+    uploadFile,
+    uploadMultipleFiles,
+    screenResumes,
+    uploadAvatar,
+    uploadGenericFile,
+    uploadProgress,
+    isUploading,
   };
 };
