@@ -14,28 +14,23 @@ import { aiService } from '@/services/ai';
 export const useJobs = () => {
   const { state, actions } = useAppContext();
 
-  // Fetch all jobs using service
-  const fetchJobs = useCallback(async () => {
-    await actions.fetchJobs();
-  }, [actions]);
+  // Auto-fetch jobs on mount if not already loaded
+  useEffect(() => {
+    if (state.jobs.length === 0 && !state.loading.jobs) {
+      actions.fetchJobs();
+    }
+  }, [state.jobs.length, state.loading.jobs, actions.fetchJobs]);
 
   // Create a new job using service
   const createJob = useCallback(async (jobData: CreateJobRequest): Promise<Job> => {
     return await actions.createJob(jobData);
-  }, [actions]);
-
-  // Auto-fetch jobs on mount if not already loaded
-  useEffect(() => {
-    if (state.jobs.length === 0 && !state.loading.jobs) {
-      fetchJobs();
-    }
-  }, [state.jobs.length, state.loading.jobs, fetchJobs]);
+  }, [actions.createJob]);
 
   return {
     jobs: state.jobs,
     loading: state.loading.jobs,
     error: state.error,
-    fetchJobs,
+    fetchJobs: actions.fetchJobs,
     createJob,
   };
 };
@@ -44,22 +39,17 @@ export const useJobs = () => {
 export const useScreening = (jobId?: string) => {
   const { state, actions } = useAppContext();
 
-  // Fetch candidates for a specific job using service
-  const fetchCandidates = useCallback(async (id: string) => {
-    await actions.fetchCandidates(id);
-  }, [actions]);
+  // Auto-fetch candidates when jobId changes
+  useEffect(() => {
+    if (jobId && !state.loading.candidates) {
+      actions.fetchCandidates(jobId);
+    }
+  }, [jobId, state.loading.candidates, actions.fetchCandidates]);
 
   // Run Gemini AI screening on uploaded resumes using service
   const runGeminiScreening = useCallback(async (id: string, files: File[]): Promise<ScreeningResponse> => {
     return await actions.runGeminiScreening(id, files);
-  }, [actions]);
-
-  // Auto-fetch candidates when jobId changes
-  useEffect(() => {
-    if (jobId && !state.loading.candidates) {
-      fetchCandidates(jobId);
-    }
-  }, [jobId, state.loading.candidates, fetchCandidates]);
+  }, [actions.runGeminiScreening]);
 
   // Filter candidates for the specific job
   const candidates = jobId ? state.selectedJobCandidates : [];
@@ -90,7 +80,7 @@ export const useScreening = (jobId?: string) => {
       screening: state.loading.screening,
     },
     error: state.error,
-    fetchCandidates,
+    fetchCandidates: actions.fetchCandidates,
     runGeminiScreening,
     clearError: actions.clearError,
   };
