@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GEMININI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
 export interface ScreeningResult {
   name: string;
@@ -14,6 +14,21 @@ export interface ScreeningResult {
   status: 'Shortlisted' | 'Review' | 'Rejected';
   email?: string;
   linkedin?: string;
+}
+
+async function listModels() {
+  try {
+    // This fetches the models metadata from the API
+    const request = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+    const data = await request.json();
+    
+    console.log("--- Available Models for your Key ---");
+    data.models.forEach((m: any) => {
+      console.log(`Name: ${m.name} | Methods: ${m.supportedGenerationMethods}`);
+    });
+  } catch (error) {
+    console.error("Could not list models:", error);
+  }
 }
 
 export class GeminiService {
@@ -29,6 +44,7 @@ export class GeminiService {
     resumes: string[], 
     retryCount = 0
   ): Promise<ScreeningResult[]> {
+  
     const prompt = `
       You are an Expert Technical Recruiter at Umurava, specializing in the Rwandan and African tech market.
       Your task is to screen the following resumes against the Job Description (JD) provided.
@@ -72,7 +88,9 @@ export class GeminiService {
 
     try {
       const result = await model.generateContent(prompt);
+      console.log(result)
       const response = await result.response;
+      console.log(response)
       const text = response.text().trim();
       
       // Robust JSON extraction
@@ -92,6 +110,10 @@ export class GeminiService {
       }
 
       console.error('Gemini API Error:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      if (error.response) {
+        console.error('Error response:', error.response);
+      }
       throw new Error('AI Screening failed');
     }
   }

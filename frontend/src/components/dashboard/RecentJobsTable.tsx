@@ -1,8 +1,10 @@
 import { Typography } from "@/components/ui/Typography";
 import { cn } from "@/lib/utils";
+import { useJobs, useScreening } from '@/hooks/useApi';
+import { useEffect, useState } from 'react';
 
-interface Job {
-  id: string;
+interface JobWithStats {
+  _id: string;
   title: string;
   candidates: number;
   avgScore: number;
@@ -10,14 +12,32 @@ interface Job {
   created: string;
 }
 
-const recentJobs: Job[] = [
-  { id: "1", title: "Senior Frontend Engineer", candidates: 24, avgScore: 72, status: "Active", created: "2026-03-28" },
-  { id: "2", title: "Backend Developer", candidates: 18, avgScore: 68, status: "Active", created: "2026-03-25" },
-  { id: "3", title: "UI/UX Designer", candidates: 12, avgScore: 81, status: "Active", created: "2026-03-20" },
-  { id: "4", title: "DevOps Engineer", candidates: 8, avgScore: 75, status: "Closed", created: "2026-03-15" },
-];
-
 export function RecentJobsTable() {
+  const { jobs } = useJobs();
+  const [jobsWithStats, setJobsWithStats] = useState<JobWithStats[]>([]);
+
+  useEffect(() => {
+    const calculateJobStats = async () => {
+      const jobsStats: JobWithStats[] = jobs.map(job => {
+        // For now, we'll use placeholder stats since we need candidate data
+        // In a real implementation, you'd fetch candidate counts and scores for each job
+        return {
+          _id: job._id,
+          title: job.title,
+          candidates: 0, // Would be calculated from real candidate data
+          avgScore: 0, // Would be calculated from real candidate scores
+          status: "Active", // Would come from job data
+          created: new Date(job.createdAt).toLocaleDateString('en-CA')
+        };
+      });
+      
+      setJobsWithStats(jobsStats);
+    };
+
+    if (jobs.length > 0) {
+      calculateJobStats();
+    }
+  }, [jobs]);
   return (
     <div className="w-full bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
@@ -32,8 +52,8 @@ export function RecentJobsTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {recentJobs.map((job) => (
-              <tr key={job.id} className="border-b border-gray-50 last:border-0 grow">
+            {jobsWithStats.map((job) => (
+              <tr key={job._id} className="border-b border-gray-50 last:border-0 grow">
                 <td className="px-6 py-5">
                   <Typography variant="body" className="font-medium text-gray-900">{job.title}</Typography>
                 </td>

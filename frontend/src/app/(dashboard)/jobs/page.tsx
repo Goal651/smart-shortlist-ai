@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { JobCard } from "@/components/dashboard/JobCard";
 import { Pagination } from "@/components/ui/Pagination";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
+import { useJobs } from '@/hooks/useApi';
 
 const jobTypeOptions = [
   { label: "All Types", value: "all" },
@@ -22,45 +23,23 @@ const statusOptions = [
   { label: "Closed", value: "closed" },
 ];
 
-const mockJobs = [
-  {
-    id: "1",
-    title: "Senior Frontend Engineer",
-    company: "Umurava",
-    description: "We are looking for an experienced frontend engineer with strong React and TypeScript skills to join our growing engineering team.",
-    location: "Kigali, Rwanda",
-    type: "Full-time",
-    workMode: "Remote",
-    postedAt: "6d ago",
-  },
-  {
-    id: "2",
-    title: "Backend Developer",
-    company: "Umurava",
-    description: "Join our backend team to build scalable APIs and microservices using Node.js and PostgreSQL. Experience with cloud platforms is a plus.",
-    location: "Kigali, Rwanda",
-    type: "Full-time",
-    workMode: "On-site",
-    postedAt: "2d ago",
-  },
-  {
-    id: "3",
-    title: "UI/UX Designer",
-    company: "Umurava",
-    description: "We're seeking a talented designer to create beautiful and intuitive user experiences for our next-generation AI platform.",
-    location: "Remote",
-    type: "Contract",
-    workMode: "Remote",
-    postedAt: "1d ago",
-  },
-];
-
 export default function JobsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [jobType, setJobType] = useState("all");
   const [status, setStatus] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const { jobs, loading, error } = useJobs();
+
+  // Filter jobs based on search and filters
+  const filteredJobs = jobs.filter(job => {
+    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         job.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Since Job interface doesn't have type/status fields, we'll only filter by search for now
+    return matchesSearch;
+  });
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -113,11 +92,25 @@ export default function JobsPage() {
       </div>
 
       {/* Jobs Card List */}
-      <div className="grid grid-cols-1 gap-6">
-        {mockJobs.map((job) => (
-          <JobCard key={job.id} {...job} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <Typography variant="body" className="text-red-600">Error loading jobs: {error}</Typography>
+        </div>
+      ) : filteredJobs.length === 0 ? (
+        <div className="text-center py-12">
+          <Typography variant="body" className="text-gray-600">No jobs found</Typography>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredJobs.map((job) => (
+            <JobCard key={job._id} {...job} />
+          ))}
+        </div>
+      )}
 
       {/* Pagination Section */}
       <div className="pt-6">
