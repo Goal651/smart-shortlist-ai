@@ -28,6 +28,20 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
+// Add middleware to log all requests
+app.use((req, res, next) => {
+  console.log('🌐 REQUEST:', req.method, req.url);
+  next();
+});
+
+/**
+ * Test endpoint for debugging
+ */
+app.get('/api/test', (req: Request, res: Response) => {
+  console.log('TEST ENDPOINT CALLED!');
+  res.json({ message: 'Test endpoint working', timestamp: new Date() });
+});
+
 /**
  * FR1: Job Description Management
  * POST /api/jobs
@@ -64,11 +78,16 @@ app.get('/api/jobs', async (req: Request, res: Response) => {
  * POST /api/jobs/:jobId/screen
  */
 app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Request, res: Response) => {
+  console.log('🚀 SCREENING ENDPOINT CALLED!');
+  console.log('📁 Files received:', req.files?.length || 0);
+  console.log('🆔 Job ID:', req.params.jobId);
+  
   try {
     const { jobId } = req.params;
     const files = req.files as Express.Multer.File[];
     
     if (!files || files.length === 0) {
+      console.log('❌ No files uploaded');
       return res.status(400).json({ error: "No resumes uploaded." });
     }
 
@@ -79,28 +98,39 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
     
     // 1. Text Extraction (Phase 1)
     let resumeData: { name: string; text: string }[] = [];
+    console.log('Processing', files.length, 'files...');
+    
     for (const file of files) {
+      console.log('Processing file:', file.originalname, '(size:', file.buffer.length, 'bytes)');
       try {
         const text = await ProcessingService.extractText(file.buffer);
+        console.log('Extracted text length:', text.length, 'characters');
+        console.log('First 100 chars:', text.substring(0, 100) + '...');
         resumeData.push({ name: file.originalname, text });
-        console.log(`✅ Successfully extracted text from: ${file.originalname}`);
+        console.log('Successfully extracted text from:', file.originalname);
       } catch (err) {
-        console.warn(`⚠️ Skipping corrupt file: ${file.originalname} `);
+        console.warn('Skipping corrupt file:', file.originalname, '- Error:', (err as Error).message);
       }
     }
+
+    console.log('Successfully processed', resumeData.length, 'out of', files.length, 'files');
 
     // 2. Batching Logic (5 resumes per call)
     const BATCH_SIZE = 5;
     for (let i = 0; i < resumeData.length; i += BATCH_SIZE) {
       const batch = resumeData.slice(i, i + BATCH_SIZE);
       const batchTexts = batch.map(r => r.text);
+      console.log('Processing batch', (i/BATCH_SIZE + 1), 'with', batchTexts.length, 'resumes');
       
       try {
+        console.log('Job description length:', job.description.length, 'chars');
         const screeningResults = await GeminiService.screenResumes(job.description, batchTexts);
+        console.log('AI returned', screeningResults.length, 'results');
         
         // Match results with original names (based on order) and save to DB
         const savedCandidates = await Promise.all(
           screeningResults.map(async (res, index) => {
+            console.log('Saving candidate:', res.name || batch[index].name, '(score:', res.score, ')');
             const candidate = new Candidate({
               jobId: job._id,
               name: res.name || batch[index].name,
@@ -121,6 +151,8 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
         console.error('Batch screening failed', error);
       }
     }
+
+    console.log('Final results: processed', files.length, 'files, created', totalResults.length, 'candidates');
 
     // FR3: In-Memory Processing (Privacy-First)
     // Clear heavy data from memory explicitly
@@ -171,6 +203,12 @@ app.get('/health', (req: Request, res: Response) => {
     system: "TypeScript + Node.js",
     model: "Gemini 1.5 Flash"
   });
+});
+
+// Catch-all route for debugging
+app.use((req, res, next) => {
+  console.log('❌ NO ROUTE MATCHED:', req.method, req.url);
+  res.status(404).json({ error: 'Route not found', url: req.url, method: req.method });
 });
 
 const PORT = process.env.PORT || 5000;

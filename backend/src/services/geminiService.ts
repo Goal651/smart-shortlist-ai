@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GEMININI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
 export interface ScreeningResult {
   name: string;
@@ -72,6 +72,7 @@ export class GeminiService {
 
     try {
       const result = await model.generateContent(prompt);
+      console.log(result)
       const response = await result.response;
       const text = response.text().trim();
       
@@ -92,6 +93,10 @@ export class GeminiService {
       }
 
       console.error('Gemini API Error:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      if (error.response) {
+        console.error('Error response:', error.response);
+      }
       throw new Error('AI Screening failed');
     }
   }
