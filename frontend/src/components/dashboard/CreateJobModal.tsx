@@ -6,54 +6,168 @@ import { Typography } from "@/components/ui/Typography";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { Briefcase, Building2, MapPin, Globe, Clock, FileText, Sparkles } from "lucide-react";
+import { Briefcase, Building2, MapPin, FileText, Sparkles } from "lucide-react";
+import { useJobs } from '@/hooks/useApi';
 
 interface CreateJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   isEdit?: boolean;
+  jobId?: string;
 }
 
 const jobTypeOptions = [
-  { label: "Full-time", value: "full-time" },
-  { label: "Part-time", value: "part-time" },
-  { label: "Contract", value: "contract" },
-  { label: "Internship", value: "internship" },
+  { label: "Full-time", value: "Full-time" },
+  { label: "Part-time", value: "Part-time" },
+  { label: "Contract", value: "Contract" },
+  { label: "Remote", value: "Remote" },
 ];
 
 const workModeOptions = [
-  { label: "Remote", value: "remote" },
-  { label: "On-site", value: "on-site" },
-  { label: "Hybrid", value: "hybrid" },
+  { label: "Remote", value: "Remote" },
+  { label: "On-site", value: "On-site" },
+  { label: "Hybrid", value: "Hybrid" },
 ];
 
-export function CreateJobModal({ isOpen, onClose, isEdit }: CreateJobModalProps) {
+export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModalProps) {
   const [formData, setFormData] = useState({
     title: "",
-    company: "",
-    location: "",
-    type: "full-time",
-    workMode: "remote",
     description: "",
+    location: "Remote",
+    type: "Full-time" as const,
+    requirements: {
+      skills: [] as string[],
+      minExperience: 0,
+      education: "",
+    },
+    salaryRange: {
+      min: 0,
+      max: 0,
+      currency: "RWF",
+    },
+    // UI-only fields
+    company: "Umurava",
+    workMode: "remote",
   });
 
-  // Pre-fill if editing (Mock data for now)
-  useEffect(() => {
-    if (isEdit && isOpen) {
-      setFormData({
-        title: "Senior Frontend Engineer",
-        company: "Umurava",
-        location: "Remote",
-        type: "full-time",
-        workMode: "remote",
-        description: "We are looking for an experienced Senior Frontend Engineer to lead the development of our next-generation AI recruitment platform.",
-      });
-    }
-  }, [isEdit, isOpen]);
+  const [newSkill, setNewSkill] = useState("");
 
-  const handleSubmit = () => {
-    console.log(isEdit ? "Updating job:" : "Creating job:", formData);
-    onClose();
+  const { createJob, jobs } = useJobs();
+  const [loading, setLoading] = useState(false);
+
+  // Pre-fill if editing
+  useEffect(() => {
+    if (isEdit && isOpen && jobId) {
+      const jobToEdit = jobs.find(job => job._id === jobId);
+      if (jobToEdit) {
+        setFormData({
+          title: jobToEdit.title,
+          description: jobToEdit.description,
+          location: jobToEdit.location || "Remote",
+          type: jobToEdit.type || "Full-time",
+          requirements: jobToEdit.requirements || {
+            skills: [],
+            minExperience: 0,
+            education: "",
+          },
+          salaryRange: jobToEdit.salaryRange || {
+            min: 0,
+            max: 0,
+            currency: "RWF",
+          },
+          // UI-only fields
+          company: "Umurava",
+          workMode: "remote",
+        });
+      }
+    } else if (isOpen && !isEdit) {
+      // Reset form for new job
+      setFormData({
+        title: "",
+        description: "",
+        location: "Remote",
+        type: "Full-time",
+        requirements: {
+          skills: [],
+          minExperience: 0,
+          education: "",
+        },
+        salaryRange: {
+          min: 0,
+          max: 0,
+          currency: "RWF",
+        },
+        // UI-only fields
+        company: "Umurava",
+        workMode: "remote",
+      });
+      setNewSkill("");
+    }
+  }, [isEdit, isOpen, jobId, jobs]);
+
+  const addSkill = () => {
+    if (newSkill.trim() && !formData.requirements.skills.includes(newSkill.trim())) {
+      setFormData({
+        ...formData,
+        requirements: {
+          ...formData.requirements,
+          skills: [...formData.requirements.skills, newSkill.trim()]
+        }
+      });
+      setNewSkill("");
+    }
+  };
+
+  const removeSkill = (skillToRemove: string) => {
+    setFormData({
+      ...formData,
+      requirements: {
+        ...formData.requirements,
+        skills: formData.requirements.skills.filter(skill => skill !== skillToRemove)
+      }
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      alert('Please fill in job title');
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      alert('Please fill in job description');
+      return;
+    }
+
+    if (formData.description.trim().length < 100) {
+      alert('Job description must be at least 100 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // For now, only support creating new jobs
+      // Edit functionality would need updateJob in the backend
+      if (isEdit) {
+        alert('Edit functionality not yet implemented');
+        return;
+      }
+
+      await createJob({
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        location: formData.location,
+        type: formData.type,
+        requirements: formData.requirements,
+        salaryRange: formData.salaryRange.min > 0 ? formData.salaryRange : undefined,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Failed to save job:', error);
+      alert('Failed to save job. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,7 +212,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit }: CreateJobModalProps)
             <Select 
               options={jobTypeOptions} 
               value={formData.type} 
-              onChange={(val) => setFormData({ ...formData, type: val })}
+              onChange={(val) => setFormData({ ...formData, type: val as "Full-time" | "Part-time" | "Contract" | "Remote" })}
               placeholder="Select Job Type"
             />
           </div>
@@ -113,17 +227,118 @@ export function CreateJobModal({ isOpen, onClose, isEdit }: CreateJobModalProps)
           </div>
         </div>
 
+        {/* Requirements Section */}
+        <div className="space-y-4">
+          <Typography variant="body" className="text-[11px] font-medium text-gray-600 tracking-wider ml-1">Requirements</Typography>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="space-y-1.5">
+              <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Skills</Typography>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  className="flex-1 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                  placeholder="Add skill..."
+                  value={newSkill}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addSkill()}
+                />
+                <Button onClick={addSkill} className="h-9 px-3 text-xs">Add</Button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.requirements.skills.map((skill, index) => (
+                  <span key={index} className="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs font-medium flex items-center gap-1">
+                    {skill}
+                    <button onClick={() => removeSkill(skill)} className="text-primary/60 hover:text-primary">×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-1.5">
+              <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Min Experience (years)</Typography>
+              <input 
+                type="number"
+                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                placeholder="0"
+                value={formData.requirements.minExperience}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  requirements: { ...formData.requirements, minExperience: parseInt(e.target.value) || 0 }
+                })}
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Education</Typography>
+              <input 
+                type="text"
+                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                placeholder="e.g. Bachelor's in CS"
+                value={formData.requirements.education}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  requirements: { ...formData.requirements, education: e.target.value }
+                })}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Salary Range Section */}
+        <div className="space-y-4">
+          <Typography variant="body" className="text-[11px] font-medium text-gray-600 tracking-wider ml-1">Salary Range (Optional)</Typography>
+          <div className="grid grid-cols-3 gap-5">
+            <input 
+              type="number"
+              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+              placeholder="Min salary"
+              value={formData.salaryRange.min || ""}
+              onChange={(e) => setFormData({
+                ...formData,
+                salaryRange: { ...formData.salaryRange, min: parseInt(e.target.value) || 0 }
+              })}
+            />
+            <input 
+              type="number"
+              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+              placeholder="Max salary"
+              value={formData.salaryRange.max || ""}
+              onChange={(e) => setFormData({
+                ...formData,
+                salaryRange: { ...formData.salaryRange, max: parseInt(e.target.value) || 0 }
+              })}
+            />
+            <Select 
+              options={[
+                { label: "RWF", value: "RWF" },
+                { label: "USD", value: "USD" },
+                { label: "EUR", value: "EUR" },
+              ]}
+              value={formData.salaryRange.currency}
+              onChange={(val) => setFormData({
+                ...formData,
+                salaryRange: { ...formData.salaryRange, currency: val }
+              })}
+              placeholder="Currency"
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Typography variant="body" className="text-[11px] font-medium text-gray-600 tracking-wider ml-1">Job Description</Typography>
           <div className="relative">
             <textarea 
               className="w-full min-h-[120px] rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20 transition-all font-work-sans text-gray-900 resize-none shadow-none"
-              placeholder="Describe the role and requirements..."
+              placeholder="Describe the role and requirements (minimum 100 characters)..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
             <FileText className="absolute right-4 bottom-4 h-4 w-4 text-gray-600 opacity-50" />
           </div>
+          <Typography variant="caption" className="text-gray-500 text-xs">
+            {formData.description.length}/100 characters minimum
+          </Typography>
         </div>
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-50">
@@ -141,9 +356,10 @@ export function CreateJobModal({ isOpen, onClose, isEdit }: CreateJobModalProps)
               </Button>
               <Button 
                 onClick={handleSubmit}
+                disabled={loading}
                 className="h-10 px-8 shadow-none font-medium transition-none text-xs"
               >
-                {isEdit ? "Update Job" : "Create Job"}
+                {loading ? "Creating..." : (isEdit ? "Edit Not Available" : "Create Job")}
               </Button>
            </div>
         </div>

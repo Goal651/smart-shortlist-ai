@@ -26,8 +26,8 @@ import { ApplicantTable, type Applicant } from "@/components/dashboard/Applicant
 import { Pagination } from "@/components/ui/Pagination";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { cn } from "@/lib/utils";
-import { useJobs } from "@/hooks/useApi";
-import { CandidateWithUI } from "@/types/api";
+import { useJobs, useScreening } from "@/hooks/useApi";
+import { CandidateWithUI } from "@/types/request";
 
 // Helper function to convert CandidateWithUI to Applicant format
 const convertToApplicant = (candidate: CandidateWithUI): Applicant => ({
@@ -67,23 +67,19 @@ export default function CandidatesPage() {
   const [isModalOpen, setIsModalOpen] =
     useState(false);
 
-  // Fetch all candidates from all jobs
-  useEffect(() => {
-    // This would need to be implemented in the backend or we can aggregate from all jobs
-    // For now, we'll use the context to get candidates from all jobs
-    // This is a placeholder - in a real implementation, you might want a dedicated endpoint
-    const fetchAllCandidates = async () => {
-      try {
-        // For now, we'll keep this empty until we have a way to fetch all candidates
-        // This could be implemented by fetching all jobs and then their candidates
-        setAllCandidates([]);
-      } catch (error) {
-        console.error('Failed to fetch all candidates:', error);
-      }
-    };
+  const { jobs } = useJobs();
+  
+  // For now, we'll use a simple approach - get candidates from the first job that has them
+  // In a real implementation, you'd want a dedicated endpoint to fetch all candidates
+  const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
+  const { candidates } = useScreening(firstJobId || '');
 
-    fetchAllCandidates();
-  }, []);
+  // Use candidates from the first job as placeholder
+  useEffect(() => {
+    if (candidates.length > 0) {
+      setAllCandidates(candidates);
+    }
+  }, [candidates]);
 
   const handleOpenModal = (applicant: Applicant) => {
     setSelectedApplicant(applicant);

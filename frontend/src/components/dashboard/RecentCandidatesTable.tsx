@@ -2,77 +2,39 @@
 
 import { Typography } from "@/components/ui/Typography";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye } from "lucide-react";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
+import { useJobs, useScreening } from '@/hooks/useApi';
+import { CandidateWithUI } from '@/types/request';
 
-interface Candidate {
-  id: string;
-  name: string;
+interface CandidateWithJob extends CandidateWithUI {
   jobTitle: string;
-  score: number;
-  status: string;
-  date: string;
-  source?: "Umurava Profile" | "External PDF" | "CSV Upload";
-  aiReasoning?: {
-    strengths: string[];
-    gaps: string[];
-    risks: string[];
-    recommendation: string;
-  };
 }
-
-const recentCandidates: Candidate[] = [
-  { 
-    id: "1", 
-    name: "Alice Mukamana", 
-    jobTitle: "Senior Frontend Engineer", 
-    score: 92, 
-    status: "Shortlisted", 
-    date: "2026-03-29",
-    source: "Umurava Profile",
-    aiReasoning: {
-      strengths: ["Expert React/TypeScript Knowledge", "Lead Experience"],
-      gaps: ["None"],
-      risks: ["Salary expectations"],
-      recommendation: "Immediate Hire."
-    }
-  },
-  { 
-    id: "2", 
-    name: "Jean Baptiste Habimana", 
-    jobTitle: "Senior Frontend Engineer", 
-    score: 85, 
-    status: "Shortlisted", 
-    date: "2026-03-29",
-    source: "Umurava Profile"
-  },
-  { 
-    id: "3", 
-    name: "Grace Uwimana", 
-    jobTitle: "Backend Developer", 
-    score: 78, 
-    status: "Review", 
-    date: "2026-03-28",
-    source: "External PDF"
-  },
-  { 
-    id: "4", 
-    name: "Patrick Niyonzima", 
-    jobTitle: "UI/UX Designer", 
-    score: 88, 
-    status: "Shortlisted", 
-    date: "2026-03-27",
-    source: "CSV Upload"
-  },
-  { id: "5", name: "Diane Iradukunda", jobTitle: "Senior Frontend Engineer", score: 65, status: "Review", date: "2026-03-29" },
-];
 
 export function RecentCandidatesTable() {
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [recentCandidates, setRecentCandidates] = useState<CandidateWithJob[]>([]);
 
-  const handleOpenModal = (applicant: Candidate) => {
+  const { jobs } = useJobs();
+  
+  // Get candidates from the first job for recent candidates display
+  const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
+  const { candidates } = useScreening(firstJobId || '');
+
+  useEffect(() => {
+    if (candidates.length > 0 && jobs.length > 0) {
+      const candidatesWithJob: CandidateWithJob[] = candidates.map(candidate => ({
+        ...candidate,
+        jobTitle: jobs[0]?.title || 'Unknown Job'
+      }));
+      
+      setRecentCandidates(candidatesWithJob.slice(0, 5)); // Show only 5 most recent
+    }
+  }, [candidates, jobs]);
+
+  const handleOpenModal = (applicant: CandidateWithJob) => {
     setSelectedApplicant(applicant);
     setIsModalOpen(true);
   };
@@ -94,7 +56,7 @@ export function RecentCandidatesTable() {
           </thead>
           <tbody className="divide-y divide-gray-50">
             {recentCandidates.map((candidate) => (
-              <tr key={candidate.id} className="border-b border-gray-50 last:border-0 grow">
+              <tr key={candidate._id} className="border-b border-gray-50 last:border-0 grow">
                 <td className="px-6 py-5">
                   <Typography variant="body" className="text-sm font-medium text-gray-900">{candidate.name}</Typography>
                 </td>
@@ -119,7 +81,9 @@ export function RecentCandidatesTable() {
                   </span>
                 </td>
                 <td className="px-6 py-5 text-center">
-                  <Typography variant="body" className="text-gray-600 text-sm whitespace-nowrap">{candidate.date}</Typography>
+                  <Typography variant="body" className="text-gray-600 text-sm whitespace-nowrap">
+                    {new Date(candidate.createdAt).toLocaleDateString('en-CA')}
+                  </Typography>
                 </td>
                 <td className="px-6 py-5 text-right">
                   <button 

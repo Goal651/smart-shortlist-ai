@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 import { Pagination } from "@/components/ui/Pagination";
-import { useScreening, useAI } from '@/hooks/useApi';
+import { useScreening, useAI, useJobs } from '@/hooks/useApi';
 import { CandidateWithUI } from '@/types/request';
 
 // Helper function to convert CandidateWithUI to Applicant format
@@ -49,7 +49,9 @@ export default function JobDetailsPage() {
   const jobId = params.id as string;
   const { candidates, topCandidates, stats, loading, error, runGeminiScreening, clearError } = useScreening(jobId);
   const { screenResumes, uploadProgress, isUploading } = useAI();
-
+  const { jobs } = useJobs();
+  
+  const currentJob = jobs.find(job => job._id === jobId);
   const hasScreened = candidates.length > 0;
 
   const handleOpenModal = (applicant: any) => {
@@ -83,10 +85,17 @@ export default function JobDetailsPage() {
 
     // Check file types (PDF, DOC, DOCX, TXT)
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+    
     for (const file of files) {
+      // Check MIME type
       if (!allowedTypes.includes(file.type)) {
-        alert(`File ${file.name} is not a supported format. Please use PDF, DOC, DOCX, or TXT.`);
-        return;
+        // Also check file extension as fallback
+        const hasValidExtension = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+        if (!hasValidExtension) {
+          alert(`File ${file.name} is not a supported format. Please use PDF, DOC, DOCX, or TXT.`);
+          return;
+        }
       }
     }
 
@@ -146,7 +155,9 @@ export default function JobDetailsPage() {
             <Typography variant="small" className="font-medium">Back to Jobs</Typography>
           </button>
           <div className="space-y-1">
-              <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">Senior Frontend Engineer</Typography>
+              <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">
+                {currentJob?.title || 'Loading...'}
+              </Typography>
               <div className="flex items-center space-x-3">
                  <Typography variant="body" className="text-primary font-medium text-sm">Umurava</Typography>
                  <span className="h-1 w-1 rounded-full bg-gray-300" />
@@ -191,7 +202,7 @@ export default function JobDetailsPage() {
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.txt"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -208,7 +219,7 @@ export default function JobDetailsPage() {
                     <Typography variant="body" className="font-medium text-sm tracking-wider">Job Description</Typography>
                 </div>
                 <Typography variant="body" className="text-sm text-gray-600 leading-relaxed font-work-sans">
-                    We are looking for an experienced Senior Frontend Engineer to lead the development of our next-generation AI recruitment platform. You will be responsible for defining architectural patterns, mentoring junior engineers, and ensuring a premium user experience across all devices.
+                    {currentJob?.description || 'Loading job description...'}
                 </Typography>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
                    {[

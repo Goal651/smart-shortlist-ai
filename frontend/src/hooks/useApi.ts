@@ -19,7 +19,7 @@ export const useJobs = () => {
     if (state.jobs.length === 0 && !state.loading.jobs) {
       actions.fetchJobs();
     }
-  }, [state.jobs.length, state.loading.jobs, actions.fetchJobs]);
+  }, [state.jobs.length, state.loading.jobs]); // Removed actions.fetchJobs to prevent infinite loops
 
   // Create a new job using service
   const createJob = useCallback(async (jobData: CreateJobRequest): Promise<Job> => {
@@ -44,7 +44,7 @@ export const useScreening = (jobId?: string) => {
     if (jobId && !state.loading.candidates) {
       actions.fetchCandidates(jobId);
     }
-  }, [jobId, state.loading.candidates, actions.fetchCandidates]);
+  }, [jobId]); // Removed actions.fetchCandidates to prevent infinite loops
 
   // Run Gemini AI screening on uploaded resumes using service
   const runGeminiScreening = useCallback(async (id: string, files: File[]): Promise<ScreeningResponse> => {

@@ -28,6 +28,7 @@ import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
+import { useJobs, useAI } from '@/hooks/useApi';
 
 const mockSystemJobs = [
   { label: "Senior Frontend Engineer", value: "job-1" },
@@ -97,9 +98,19 @@ export default function UploadPage() {
   const [isScreening, setIsScreening] = useState(false);
   const [hasScreened, setHasScreened] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [screenedCandidates, setScreenedCandidates] = useState<any[]>([]);
   
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { jobs } = useJobs();
+  const { screenResumes, uploadProgress, isUploading } = useAI();
+
+  // Convert jobs to options for select
+  const systemJobOptions = jobs.map(job => ({
+    label: job.title,
+    value: job._id
+  }));
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -118,12 +129,30 @@ export default function UploadPage() {
     }
   };
 
-  const handleRunScreening = () => {
+  const handleRunScreening = async () => {
+    if (!selectedJob && !customJD) {
+      alert('Please select a job or provide custom job description');
+      return;
+    }
+
+    if (files.length === 0) {
+      alert('Please upload resume files');
+      return;
+    }
+
     setIsScreening(true);
-    setTimeout(() => {
-      setIsScreening(false);
+    try {
+      // Use the selected system job
+      await screenResumes(selectedJob, files);
       setHasScreened(true);
-    }, 2500);
+      // Note: In a real implementation, you'd get the screened candidates from the response
+      // For now, we'll show a success state
+    } catch (error) {
+      console.error('Screening failed:', error);
+      alert('Screening failed. Please try again.');
+    } finally {
+      setIsScreening(false);
+    }
   };
 
   const handleOpenModal = (applicant: any) => {
@@ -282,7 +311,7 @@ export default function UploadPage() {
               </div>
 
               <div className="space-y-6">
-                 <Card className="p-6 bg-primary/[0.03] border-primary/20 space-y-5 shadow-none animate-in fade-in duration-1000">
+                 <Card className="p-6 bg-primary/3 border-primary/20 space-y-5 shadow-none animate-in fade-in duration-1000">
                     <div className="flex items-center space-x-2 text-primary">
                        <Sparkles className="h-5 w-5 fill-primary/10" />
                        <Typography variant="h3" className="text-sm font-medium tracking-widest">Gemini Executive Verdict</Typography>
@@ -357,7 +386,7 @@ export default function UploadPage() {
                  <div className="space-y-1.5 animate-in fade-in duration-300">
                     <Typography variant="caption" className="text-[11px] font-medium text-gray-600 tracking-wider ml-1">Select Existing Job</Typography>
                     <Select 
-                      options={mockSystemJobs} 
+                      options={systemJobOptions} 
                       value={selectedJob} 
                       onChange={setSelectedJob} 
                       placeholder="Choose a job from your platform..." 
@@ -407,7 +436,7 @@ export default function UploadPage() {
                             />
                             <div className={cn(
                                 "border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-all duration-300",
-                                jdFile ? "border-primary/20 bg-primary/[0.02]" : "border-gray-100 bg-gray-50/50 group-hover:border-primary/20 group-hover:bg-primary/5"
+                                jdFile ? "border-primary/20 bg-primary/2" : "border-gray-100 bg-gray-50/50 group-hover:border-primary/20 group-hover:bg-primary/5"
                             )}>
                                <FileUp className={cn("h-6 w-6 mb-2", jdFile ? "text-primary" : "text-gray-600")} />
                                <Typography variant="body" className="text-xs font-medium text-gray-900">
@@ -545,15 +574,15 @@ export default function UploadPage() {
                         </div>
                         <Button 
                           onClick={handleRunScreening}
-                          disabled={isScreening || hasScreened}
+                          disabled={isScreening || isUploading || hasScreened}
                           className={cn(
                             "w-full sm:w-auto h-11 px-8 shadow-none font-medium transition-none gap-2"
                           )}
                         >
-                           {isScreening ? (
+                           {(isScreening || isUploading) ? (
                               <>
                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                 AI Screening...
+                                 {uploadProgress > 0 ? `Uploading... ${uploadProgress}%` : 'AI Screening...'}
                               </>
                            ) : (
                               <>
@@ -570,7 +599,7 @@ export default function UploadPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-             <Card className="p-6 bg-primary/[0.03] border-primary/20 space-y-4 shadow-none">
+             <Card className="p-6 bg-primary/3 border-primary/20 space-y-4 shadow-none">
                 <div className="flex items-center space-x-2 text-primary">
                    <Sparkles className="h-4 w-4" />
                    <Typography variant="body" className="font-medium text-xs tracking-widest leading-none">External Analysis</Typography>
