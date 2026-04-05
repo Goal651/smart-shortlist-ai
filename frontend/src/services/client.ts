@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosProgressEvent, CancelToken } from 'axios';
 import { API_CONFIG, HTTP_STATUS } from './constant';
+import { ApiResponse } from '@/types/api';
 
 class ApiClient {
     private axiosInstance: AxiosInstance;
@@ -124,40 +125,60 @@ class ApiClient {
         } catch { }
     }
 
-    async get<T>(endpoint: string, params?: Record<string, unknown>, options?: { timeout?: number }): Promise<T> {
+    async get<T>(endpoint: string, params?: Record<string, unknown>, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.get<T>(endpoint, {
             params,
             timeout: options?.timeout
         });
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
     }
 
-    async post<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<T> {
+    async post<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.post<T>(endpoint, data, {
             timeout: options?.timeout
         });
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
     }
 
-    async put<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<T> {
+    async put<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.put<T>(endpoint, data, {
             timeout: options?.timeout
         });
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
     }
 
-    async patch<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<T> {
+    async patch<T>(endpoint: string, data?: unknown, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.patch<T>(endpoint, data, {
             timeout: options?.timeout
         });
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
     }
 
-    async delete<T>(endpoint: string, options?: { timeout?: number }): Promise<T> {
+    async delete<T>(endpoint: string, options?: { timeout?: number }): Promise<ApiResponse<T>> {
         const response = await this.axiosInstance.delete<T>(endpoint, {
             timeout: options?.timeout
         });
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'Request successful'
+        };
     }
 
     async uploadFile<T>(
@@ -166,7 +187,7 @@ class ApiClient {
         onUploadProgress?: (event: AxiosProgressEvent) => void,
         cancelToken?: CancelToken,
         timeout?: number
-    ): Promise<T> {
+    ): Promise<ApiResponse<T>> {
         const formData = new FormData();
         formData.append("file", file);
 
@@ -179,7 +200,11 @@ class ApiClient {
             timeout: timeout
         });
 
-        return response.data;
+        return {
+            success: true,
+            data: response.data,
+            message: 'File uploaded successfully'
+        };
     }
 
 }
