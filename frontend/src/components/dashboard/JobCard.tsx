@@ -42,7 +42,7 @@ export function JobCard({
         </span>
       </div>
 
-      <Typography variant="body" className="text-gray-600 leading-relaxed max-w-4xl font-work-sans">
+      <Typography variant="body" className="text-gray-600 leading-relaxed max-w-4xl font-work-sans line-clamp-3">
         {description}
       </Typography>
 

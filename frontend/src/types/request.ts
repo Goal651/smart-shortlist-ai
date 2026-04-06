@@ -16,9 +16,32 @@ export interface CandidateWithUI extends Candidate {
 }
 
 // API Response types
+export interface RecentAnalysis {
+  _id: string;
+  jobTitle: string;
+  fileCount: number;
+  candidateCount: number;
+  topScore: number;
+  createdAt: string;
+}
+
+export interface AnalysisCandidateSummary {
+  _id?: string;
+  name: string;
+  score: number;
+  summary?: string;
+  email?: string;
+  linkedin?: string;
+}
+
+export interface AnalysisDetail extends RecentAnalysis {
+  topCandidates: AnalysisCandidateSummary[];
+}
+
 export interface ScreeningResponse {
   processed: number;
   candidates: Candidate[];
+  analysis?: RecentAnalysis;
 }
 
 export type JobsListResponse = Job[];

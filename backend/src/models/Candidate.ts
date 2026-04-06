@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ICandidate extends Document {
   jobId: mongoose.Types.ObjectId;
+  analysisId?: mongoose.Types.ObjectId;
   name: string;
   score: number;
   summary: string;
@@ -16,6 +17,7 @@ export interface ICandidate extends Document {
 
 const CandidateSchema: Schema = new Schema({
   jobId: { type: Schema.Types.ObjectId, ref: 'Job', required: true },
+  analysisId: { type: Schema.Types.ObjectId, ref: 'Analysis', required: false },
   name: { type: String, required: true },
   score: { type: Number, required: true },
   summary: { type: String, required: true },

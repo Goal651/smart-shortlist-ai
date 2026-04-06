@@ -11,17 +11,23 @@ interface ApplicantDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   applicant: {
-    id: string;
+    _id?: string;
+    id?: string;
     name: string;
     score: number;
-    status: string;
-    date: string;
-    source?: "Umurava Profile" | "External PDF" | "CSV Upload";
-    jobTitle?: string;
+    summary?: string;
+    top_skills?: string[];
+    gaps?: string[];
+    status: 'Shortlisted' | 'Review' | 'Rejected' | string;
+    email?: string;
+    linkedin?: string;
+    createdAt?: string;
+    extractedText?: string;
+    source?: string;
     aiReasoning?: {
       strengths: string[];
       gaps: string[];
-      risks: string[];
+      risks?: string[];
       recommendation: string;
     };
   } | null;
@@ -30,14 +36,32 @@ interface ApplicantDetailsModalProps {
 export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantDetailsModalProps) {
   if (!applicant) return null;
 
-  const defaultReasoning = {
-    strengths: ["Strong technical foundation", "5+ years of relevant experience"],
-    gaps: ["No direct experience with the specific cloud stack"],
-    risks: ["Location transition requirements"],
-    recommendation: "Highly recommended for further interview based on technical score and experience depth."
+  // Build reasoning from real candidate data
+  const reasoning = applicant.aiReasoning ? {
+    strengths: applicant.aiReasoning.strengths,
+    gaps: applicant.aiReasoning.gaps,
+    risks: applicant.aiReasoning.risks || [],
+    recommendation: applicant.aiReasoning.recommendation,
+  } : {
+    strengths: applicant.top_skills && applicant.top_skills.length > 0 
+      ? applicant.top_skills.slice(0, 2).map(skill => `Strong ${skill} skill`)
+      : ["Strong technical foundation", "Relevant experience"],
+    gaps: applicant.gaps ? applicant.gaps.slice(0, 2) : [],
+    risks: applicant.gaps ? applicant.gaps.slice(2, 3) : [],
+    recommendation: applicant.score >= 85 
+      ? "Highly recommended for further interview based on strong skills match."
+      : applicant.score >= 70 
+      ? "Recommended with minor skill gaps. Consider for technical assessment."
+      : "Needs further evaluation. Skills alignment is moderate."
   };
 
-  const reasoning = applicant.aiReasoning || defaultReasoning;
+  const appliedDate = applicant.createdAt 
+    ? new Date(applicant.createdAt).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      })
+    : "Recently";
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Applicant Analysis Report" className="max-w-4xl">
@@ -59,12 +83,12 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
                <div className="flex items-center space-x-2">
                   <Typography variant="h3" className="text-lg font-medium text-gray-900">{applicant.name}</Typography>
                   <span className="px-2 py-0.5 bg-gray-50 text-gray-600 rounded-lg text-[9px] font-medium border border-gray-100">
-                    {applicant.source || "Umurava Profile"}
+                    {applicant.source || "External PDF"}
                   </span>
                </div>
               <div className="flex items-center space-x-2 text-gray-600">
                 <Mail className="h-3 w-3" />
-                <Typography variant="caption" className="text-[11px] font-medium">{applicant.name.toLowerCase().replace(" ", ".")}@example.com</Typography>
+                <Typography variant="caption" className="text-[11px] font-medium">{applicant.email || 'Not provided'}</Typography>
               </div>
             </div>
           </div>
@@ -78,15 +102,7 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
                 <Typography variant="h2" className="text-base font-medium leading-none">{applicant.score}</Typography>
                 <Typography variant="small" className="text-[8px] font-medium tracking-tighter opacity-70">Match</Typography>
              </div>
-             <div className="space-y-1">
-                <span className={cn(
-                   "block px-2.5 py-0.5 rounded-full text-[9px] font-medium border text-center",
-                   applicant.status === "Shortlisted" ? "bg-green-50 text-green-600 border-green-100" : "bg-orange-50 text-orange-600 border-orange-100"
-                )}>
-                   {applicant.status}
-                </span>
-                <Typography variant="caption" className="text-[9px] text-gray-600 text-center block">Applied {applicant.date}</Typography>
-             </div>
+             <Typography variant="caption" className="text-[9px] text-gray-600 text-center block">Applied {appliedDate}</Typography>
           </div>
         </div>
 
@@ -135,45 +151,36 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
            </Card>
         </div>
 
-        {/* Detailed Info (Experience & Education) */}
+        {/* Detailed Info (Skills & Summary) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
            <div className="space-y-4">
               <div className="space-y-2">
                  <div className="flex items-center space-x-2 text-gray-900">
-                    <Briefcase className="h-3.5 w-3.5 text-primary" />
-                    <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Experience History</Typography>
+                    <Award className="h-3.5 w-3.5 text-primary" />
+                    <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Top Skills</Typography>
                  </div>
-                 <div className="space-y-3 pl-5 border-l border-gray-100 ml-1.5">
-                    <div className="space-y-0.5">
-                       <Typography variant="body" className="text-[11px] font-medium text-gray-900">Senior React Developer</Typography>
-                       <Typography variant="caption" className="text-gray-600 text-[10px]">TechSolutions Inc • 2021 - Present</Typography>
-                    </div>
-                    <div className="space-y-0.5">
-                       <Typography variant="body" className="text-[11px] font-medium text-gray-900">Frontend Developer</Typography>
-                       <Typography variant="caption" className="text-gray-600 text-[10px]">Creative Agency • 2018 - 2021</Typography>
-                    </div>
+                 <div className="space-y-2 pl-5 border-l border-gray-100 ml-1.5">
+                    {(applicant.top_skills && applicant.top_skills.length > 0) ? (
+                      applicant.top_skills.slice(0, 5).map((skill, i) => (
+                        <div key={i} className="space-y-0.5">
+                           <Typography variant="body" className="text-[11px] font-medium text-gray-900">{skill}</Typography>
+                        </div>
+                      ))
+                    ) : (
+                      <Typography variant="body" className="text-[11px] text-gray-600 italic">No skills extracted</Typography>
+                    )}
                  </div>
               </div>
            </div>
 
            <div className="space-y-4">
-              <div className="space-y-2">
-                 <div className="flex items-center space-x-2 text-gray-900">
-                    <GraduationCap className="h-3.5 w-3.5 text-primary" />
-                    <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Education</Typography>
-                 </div>
-                 <div className="space-y-0.5 pl-5 border-l border-gray-100 ml-1.5">
-                    <Typography variant="body" className="text-[11px] font-medium text-gray-900">BSc in Computer Science</Typography>
-                    <Typography variant="caption" className="text-gray-600 text-[10px]">University of Rwanda • 2014 - 2018</Typography>
-                 </div>
-              </div>
               <div className="space-y-1.5">
                  <div className="flex items-center space-x-2 text-gray-900">
-                    <Award className="h-3.5 w-3.5 text-primary" />
+                    <Briefcase className="h-3.5 w-3.5 text-primary" />
                     <Typography variant="body" className="font-medium text-[10px] text-gray-600 tracking-widest">Candidate Summary</Typography>
                  </div>
                  <Typography variant="body" className="text-[11px] text-gray-600 leading-relaxed font-work-sans">
-                    Highly skilled engineer with 5+ years of experience in modern web technologies. Expert in React and TypeScript.
+                    {applicant.summary || "No summary available"}
                  </Typography>
               </div>
            </div>
