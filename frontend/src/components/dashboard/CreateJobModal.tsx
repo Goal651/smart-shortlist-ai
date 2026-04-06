@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Briefcase, Building2, MapPin, FileText, Sparkles } from "lucide-react";
 import { useJobs } from '@/hooks/useApi';
+import { useToast } from '@/contexts/ToastContext';
 
 interface CreateJobModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
   const [newSkill, setNewSkill] = useState("");
 
   const { createJob, jobs } = useJobs();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
 
   // Pre-fill if editing
@@ -130,17 +132,29 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
-      alert('Please fill in job title');
+      showToast({
+        title: "Missing title",
+        description: "Please fill in job title.",
+        variant: "error",
+      });
       return;
     }
 
     if (!formData.description.trim()) {
-      alert('Please fill in job description');
+      showToast({
+        title: "Missing description",
+        description: "Please fill in job description.",
+        variant: "error",
+      });
       return;
     }
 
     if (formData.description.trim().length < 100) {
-      alert('Job description must be at least 100 characters');
+      showToast({
+        title: "Description too short",
+        description: "Job description must be at least 100 characters.",
+        variant: "warning",
+      });
       return;
     }
 
@@ -149,7 +163,11 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
       // For now, only support creating new jobs
       // Edit functionality would need updateJob in the backend
       if (isEdit) {
-        alert('Edit functionality not yet implemented');
+        showToast({
+          title: "Edit not ready",
+          description: "Edit functionality is not yet implemented.",
+          variant: "info",
+        });
         return;
       }
 
@@ -161,10 +179,20 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
         requirements: formData.requirements,
         salaryRange: formData.salaryRange.min > 0 ? formData.salaryRange : undefined,
       });
+
+      showToast({
+        title: "Job posted",
+        description: "Your job has been successfully posted.",
+        variant: "success",
+      });
       onClose();
     } catch (error) {
       console.error('Failed to save job:', error);
-      alert('Failed to save job. Please try again.');
+      showToast({
+        title: "Save failed",
+        description: "Failed to save job. Please try again.",
+        variant: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -175,7 +203,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
       isOpen={isOpen} 
       onClose={onClose} 
       title={isEdit ? "Edit Job Details" : "Create New Job"} 
-      className="max-w-2xl"
+      className="max-w-2xl max-h-[80vh] overflow-y-auto"
     >
       <div className="space-y-6">
         <Typography variant="body" className="text-gray-600 font-medium text-xs">
@@ -234,16 +262,16 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="space-y-1.5">
               <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Skills</Typography>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <input 
                   type="text"
-                  className="flex-1 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                  className="min-w-0 flex-1 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Add skill..."
                   value={newSkill}
                   onChange={(e) => setNewSkill(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addSkill()}
                 />
-                <Button onClick={addSkill} className="h-9 px-3 text-xs">Add</Button>
+                <Button onClick={addSkill} size="sm">Add</Button>
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.requirements.skills.map((skill, index) => (
@@ -259,7 +287,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
               <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Min Experience (years)</Typography>
               <input 
                 type="number"
-                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary "
                 placeholder="0"
                 value={formData.requirements.minExperience}
                 onChange={(e) => setFormData({
@@ -273,7 +301,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
               <Typography variant="caption" className="text-[10px] font-medium text-gray-600 tracking-wider ml-1">Education</Typography>
               <input 
                 type="text"
-                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+                className="w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="e.g. Bachelor's in CS"
                 value={formData.requirements.education}
                 onChange={(e) => setFormData({
@@ -291,7 +319,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
           <div className="grid grid-cols-3 gap-5">
             <input 
               type="number"
-              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Min salary"
               value={formData.salaryRange.min || ""}
               onChange={(e) => setFormData({
@@ -301,7 +329,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
             />
             <input 
               type="number"
-              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20"
+              className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Max salary"
               value={formData.salaryRange.max || ""}
               onChange={(e) => setFormData({
@@ -329,7 +357,7 @@ export function CreateJobModal({ isOpen, onClose, isEdit, jobId }: CreateJobModa
           <Typography variant="body" className="text-[11px] font-medium text-gray-600 tracking-wider ml-1">Job Description</Typography>
           <div className="relative">
             <textarea 
-              className="w-full min-h-[120px] rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary/20 transition-all font-work-sans text-gray-900 resize-none shadow-none"
+              className="w-full min-h-[120px] rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary transition-all font-work-sans text-gray-900 resize-none shadow-none"
               placeholder="Describe the role and requirements (minimum 100 characters)..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   UploadCloud, 
   FileText, 
@@ -20,34 +20,43 @@ import {
   ChevronRight,
   ListFilter,
   Type,
-  FileUp
+  FileUp,
+  History,
+  Clock
 } from "lucide-react";
 import { Typography } from "@/components/ui/Typography";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { useJobs, useAI } from '@/hooks/useApi';
+import { useToast } from '@/contexts/ToastContext';
+import { AnalysisDetail, RecentAnalysis } from '@/types/request';
+import { analysisService } from '@/services/analysis';
 
 export default function UploadPage() {
+  const [activeTab, setActiveTab] = useState<"upload" | "history">("upload");
   const [jobSource, setJobSource] = useState<"system" | "custom">("system");
   const [customJDMode, setCustomJDMode] = useState<"paste" | "upload">("paste");
   const [selectedJob, setSelectedJob] = useState("");
   const [customJD, setCustomJD] = useState("");
   const [jdFile, setJdFile] = useState<File | null>(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [hasParsed, setHasParsed] = useState(false);
-  const [isScreening, setIsScreening] = useState(false);
-  const [hasScreened, setHasScreened] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [screenedCandidates, setScreenedCandidates] = useState<any[]>([]);
+  const [hasScreened, setHasScreened] = useState(false);
+  const [hasParsed,setHasParsed] = useState(false);
+  const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysis[]>([]);
   
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAnalysisDetail, setSelectedAnalysisDetail] = useState<AnalysisDetail | null>(null);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
 
   const { jobs } = useJobs();
   const { screenResumes, uploadProgress, isUploading } = useAI();
+  const { showToast } = useToast();
 
   // Convert jobs to options for select
   const systemJobOptions = jobs.map(job => ({
@@ -57,12 +66,30 @@ export default function UploadPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-      setIsParsing(true);
-      setTimeout(() => {
-        setIsParsing(false);
-        setHasParsed(true);
-      }, 2000);
+      const newFiles = Array.from(e.target.files);
+      // Append new files to existing ones (no duplicates by name)
+      const existingNames = new Set(files.map(f => f.name));
+      const uniqueNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+      
+      if (uniqueNewFiles.length > 0) {
+        setFiles([...files, ...uniqueNewFiles]);
+        showToast({
+          title: "Files added",
+          description: `Added ${uniqueNewFiles.length} file(s). Total: ${files.length + uniqueNewFiles.length}`,
+          variant: "success",
+          duration: 2000,
+        });
+      } else {
+        showToast({
+          title: "Duplicate files",
+          description: "These files are already added.",
+          variant: "warning",
+          duration: 2000,
+        });
+      }
+      
+      // Reset input so same file can be added again if removed
+      e.target.value = '';
     }
   };
 
@@ -72,32 +99,89 @@ export default function UploadPage() {
     }
   };
 
+  useEffect(() => {
+    analysisService.getRecentAnalyses()
+      .then((response) => {
+        if (response.success && response.data) {
+          setRecentAnalyses(response.data);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load recent analyses', error);
+      });
+  }, []);
+
   const handleRunScreening = async () => {
     if (!selectedJob && !customJD) {
-      alert('Please select a job or provide custom job description');
+      showToast({
+        title: "Missing job details",
+        description: "Please select a job or provide a custom job description.",
+        variant: "error",
+      });
       return;
     }
 
     if (files.length === 0) {
-      alert('Please upload resume files');
+      showToast({
+        title: "No files selected",
+        description: "Please upload resume files to screen.",
+        variant: "error",
+      });
       return;
     }
 
-    setIsScreening(true);
     try {
-      // Use the selected system job
+      showToast({
+        title: "Screening started",
+        description: `Processing ${files.length} resumes with Gemini AI...`,
+        variant: "info",
+        duration: 3000,
+      });
+
       const response = await screenResumes(selectedJob, files);
-      setHasScreened(true);
       
-      // Store the real screened candidates
       if (response && response.candidates) {
         setScreenedCandidates(response.candidates);
+        setHasScreened(true);
+
+        if (response.analysis) {
+          setRecentAnalyses((prev) => {
+            const next = [response.analysis, ...prev]
+              .filter((item): item is RecentAnalysis => item !== undefined)
+              .filter((item, index, self) => self.findIndex((it) => it._id === item._id) === index)
+              .slice(0, 5);
+            return next;
+          });
+        }
+
+        showToast({
+          title: "Screening complete",
+          description: `Successfully analyzed ${response.candidates.length} candidates.`,
+          variant: "success",
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error('Screening failed:', error);
-      alert('Screening failed. Please try again.');
-    } finally {
-      setIsScreening(false);
+      showToast({
+        title: "Screening failed",
+        description: "Failed to process resumes. Please try again.",
+        variant: "error",
+      });
+    }
+  };
+
+  const handleOpenAnalysisModal = async (analysis: RecentAnalysis) => {
+    setSelectedAnalysisDetail(null);
+    setIsAnalysisModalOpen(true);
+
+    try {
+      const response = await analysisService.getAnalysisDetail(analysis._id);
+      if (response.success && response.data) {
+        setSelectedAnalysisDetail(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load analysis details', error);
     }
   };
 
@@ -113,6 +197,32 @@ export default function UploadPage() {
         <div className="space-y-1">
           <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">Scenario 2: Bulk External Screening</Typography>
           <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Screen candidates from LinkedIn, Resumes, or CSVs with full Gemini transparency</Typography>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      {!hasScreened && (
+        <div className="flex items-center space-x-1 bg-gray-50 p-1 rounded-xl border border-gray-100 w-fit">
+          <button
+            onClick={() => setActiveTab("upload")}
+            className={cn(
+              "flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all transition-none",
+              activeTab === "upload" ? "bg-white text-primary shadow-sm" : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <UploadCloud className="h-4 w-4" />
+            <span>Upload & Screen</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={cn(
+              "flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all transition-none",
+              activeTab === "history" ? "bg-white text-primary shadow-sm" : "text-gray-600 hover:text-gray-900"
+            )}
+          >
+            <History className="h-4 w-4" />
+            <span>Analysis History</span>
+          </button>
         </div>
       )}
 
@@ -298,7 +408,7 @@ export default function UploadPage() {
               </div>
            </div>
         </div>
-      ) : (
+      ) : activeTab === "upload" ? (
         /* ORIGINAL UPLOAD content with CUSTOM JD refinements */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
@@ -430,9 +540,9 @@ export default function UploadPage() {
               </div>
 
               {files.length > 0 && (
-                 <div className="space-y-3 animate-in fade-in duration-500">
+                 <div className="space-y-4 animate-in fade-in duration-500">
                     <div className="flex items-center justify-between">
-                       <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Selected Files</Typography>
+                       <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Selected Files ({files.length})</Typography>
                        <button onClick={() => setFiles([])} className="text-[10px] font-medium text-gray-600 hover:text-red-500 tracking-widest transition-none shadow-none">Clear All</button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -448,105 +558,34 @@ export default function UploadPage() {
                           </div>
                        ))}
                     </div>
+
+                    <div className="pt-4 flex items-center gap-3">
+                       <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100 text-[10px]">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <Typography variant="caption" className="font-medium leading-tight">Ready to screen</Typography>
+                       </div>
+                       <Button 
+                         onClick={handleRunScreening}
+                         disabled={isUploading}
+                         className="h-10 px-6 shadow-none font-medium transition-none gap-2 ml-auto"
+                       >
+                          {isUploading ? (
+                             <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Screening...
+                             </>
+                          ) : (
+                             <>
+                                <Sparkles className="h-4 w-4" />
+                                Analyze with Gemini
+                             </>
+                          )}
+                       </Button>
+                    </div>
                  </div>
               )}
+
             </Card>
-
-            {/* Step 3: Parsing Preview Section */}
-            {(isParsing || hasParsed) && (
-               <Card className="p-6 space-y-6 border-gray-100 shadow-none animate-in slide-in-from-bottom-4 duration-700">
-                  <div className="flex items-center justify-between">
-                     <div className="flex items-center space-x-2 text-gray-900">
-                        <FileSearch className="h-4 w-4 text-primary" />
-                        <Typography variant="body" className="font-medium text-sm tracking-wider">Step 3: Verification Preview</Typography>
-                     </div>
-                     {isParsing && (
-                        <div className="flex items-center space-x-2 text-primary">
-                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                           <Typography variant="caption" className="text-[10px] font-medium tracking-widest">Parsing Profiles...</Typography>
-                        </div>
-                     )}
-                  </div>
-
-                  <div className="w-full bg-white rounded-xl border border-gray-100 overflow-hidden shadow-none">
-                     <table className="w-full text-left">
-                        <thead>
-                           <tr className="bg-gray-50/50 border-b border-gray-50">
-                              <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest">Candidate</th>
-                              <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest">Extracted Skills</th>
-                              <th className="px-5 py-3 text-[10px] font-medium text-gray-600 tracking-widest text-right">Verification</th>
-                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                           {isParsing ? (
-                              Array.from({ length: 2 }).map((_, i) => (
-                                 <tr key={i} className="animate-pulse">
-                                    <td className="px-5 py-4"><div className="h-4 bg-gray-50 rounded-lg w-32" /></td>
-                                    <td className="px-5 py-4"><div className="h-4 bg-gray-50 rounded-lg w-48" /></td>
-                                    <td className="px-5 py-4 text-right"><div className="h-4 bg-gray-50 rounded-lg w-12 ml-auto" /></td>
-                                  </tr>
-                              ))
-                           ) : (
-                              screenedCandidates.map((candidate, index) => (
-                                 <tr key={candidate._id || index} className="group hover:bg-gray-50/30 transition-colors">
-                                    <td className="px-5 py-4">
-                                       <div className="space-y-0.5">
-                                          <Typography variant="body" className="text-xs font-medium text-gray-900">{candidate.name}</Typography>
-                                          <Typography variant="caption" className="text-[10px] text-gray-600 font-medium">{candidate.email || 'No email'}</Typography>
-                                       </div>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                       <div className="flex flex-wrap gap-1.5">
-                                          {candidate.top_skills && candidate.top_skills.length > 0 
-                                            ? candidate.top_skills.slice(0, 3).map((skill: string, skillIndex: number) => (
-                                               <span key={skillIndex} className="px-2 py-0.5 bg-gray-50 border border-gray-100 text-[9px] font-medium text-gray-600 rounded-lg">{skill}</span>
-                                            ))
-                                            : <span className="text-[10px] text-gray-500">No skills extracted</span>
-                                          }
-                                       </div>
-                                    </td>
-                                    <td className="px-5 py-4 text-right">
-                                       <div className="inline-flex items-center space-x-1.5 text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100 font-medium text-[9px] tracking-wider">
-                                          <CheckCircle2 className="h-2.5 w-2.5" />
-                                          <span>Verified</span>
-                                       </div>
-                                    </td>
-                                 </tr>
-                              ))
-                           )}
-                        </tbody>
-                     </table>
-                  </div>
-
-                  {!isParsing && (
-                     <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-1.5 border border-gray-100">
-                           <AlertCircle className="h-3 w-3" />
-                           <Typography variant="caption" className="text-[10px] font-medium leading-tight">Ready to screen {files.length} profiles based on {jobSource === 'system' ? 'the selected system job' : jdFile ? 'the uploaded JD file' : 'your custom text'}.</Typography>
-                        </div>
-                        <Button 
-                          onClick={handleRunScreening}
-                          disabled={isScreening || isUploading || hasScreened}
-                          className={cn(
-                            "w-full sm:w-auto h-11 px-8 shadow-none font-medium transition-none gap-2"
-                          )}
-                        >
-                           {(isScreening || isUploading) ? (
-                              <>
-                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                 {uploadProgress > 0 ? `Uploading... ${uploadProgress}%` : 'AI Screening...'}
-                              </>
-                           ) : (
-                              <>
-                                 <Sparkles className="h-4 w-4" />
-                                 Screen with Gemini
-                              </>
-                           )}
-                        </Button>
-                     </div>
-                  )}
-               </Card>
-            )}
           </div>
 
           {/* Sidebar */}
@@ -578,7 +617,211 @@ export default function UploadPage() {
              </Card>
           </div>
         </div>
+      ) : (
+        /* History Tab */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">Analysis History</Typography>
+              <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">View your recent screening analyses and results</Typography>
+            </div>
+            <div className="flex items-center space-x-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+              <Clock className="h-4 w-4" />
+              <Typography variant="caption" className="font-medium">{recentAnalyses.length} analyses</Typography>
+            </div>
+          </div>
+
+          {recentAnalyses.length === 0 ? (
+            <Card className="p-12 text-center border-gray-100 shadow-none">
+              <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <Typography variant="h2" className="text-lg font-medium text-gray-900 mb-2">No Analysis History</Typography>
+              <Typography variant="body" className="text-gray-600 mb-6">You haven't performed any screenings yet. Switch to the Upload tab to get started.</Typography>
+              <Button onClick={() => setActiveTab("upload")} className="shadow-none">
+                <UploadCloud className="h-4 w-4 mr-2" />
+                Start Screening
+              </Button>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <Card className="border-gray-100 shadow-none">
+                <div className="p-6 border-b border-gray-50">
+                  <Typography variant="h2" className="text-lg font-medium text-gray-900">Analysis History</Typography>
+                  <Typography variant="caption" className="text-gray-600 mt-1">Click on any analysis to view detailed results</Typography>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50/50 border-b border-gray-50">
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Job Title</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Files</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Candidates</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Top Score</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Date</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-medium text-gray-600 tracking-widest">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {recentAnalyses.map((analysis) => (
+                        <tr key={analysis._id} className="group hover:bg-gray-50/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <Typography variant="body" className="text-sm font-medium text-gray-900 truncate max-w-xs">{analysis.jobTitle}</Typography>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                              {analysis.fileCount} file{analysis.fileCount === 1 ? '' : 's'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 border border-green-100">
+                              {analysis.candidateCount} candidate{analysis.candidateCount === 1 ? '' : 's'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-600 border border-orange-100">
+                              {analysis.topScore}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Typography variant="caption" className="text-xs text-gray-600">
+                              {new Date(analysis.createdAt).toLocaleDateString()} <br />
+                              <span className="text-[10px] text-gray-500">{new Date(analysis.createdAt).toLocaleTimeString()}</span>
+                            </Typography>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => handleOpenAnalysisModal(analysis)}
+                              className="h-8 w-8 rounded-lg border border-gray-100 bg-white flex items-center justify-center text-gray-600 hover:text-primary hover:border-primary/20 transition-all shadow-none"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {recentAnalyses.length === 0 && (
+                  <div className="p-12 text-center">
+                    <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <Typography variant="h3" className="text-lg font-medium text-gray-900 mb-2">No Analysis History</Typography>
+                    <Typography variant="body" className="text-gray-600">You haven't performed any screenings yet.</Typography>
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Analysis Details Modal */}
+      <Modal isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} title="Analysis Details" className="max-w-4xl">
+        {selectedAnalysisDetail ? (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="pb-4 border-b border-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Typography variant="h2" className="text-xl font-medium text-gray-900 mb-1">{selectedAnalysisDetail.jobTitle}</Typography>
+                  <Typography variant="caption" className="text-gray-600">
+                    Analyzed on {new Date(selectedAnalysisDetail.createdAt).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })} at {new Date(selectedAnalysisDetail.createdAt).toLocaleTimeString()}
+                  </Typography>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Star className="h-5 w-5 text-orange-400 fill-orange-400" />
+                    <Typography variant="h1" className="text-2xl font-medium text-gray-900">{selectedAnalysisDetail.topScore}</Typography>
+                  </div>
+                  <Typography variant="caption" className="text-xs text-gray-600">Highest Match Score</Typography>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="p-5 bg-blue-50/10 border-blue-100/50 shadow-none">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <Typography variant="h1" className="text-2xl font-medium text-gray-900">{selectedAnalysisDetail.fileCount}</Typography>
+                    <Typography variant="caption" className="text-xs text-gray-600">Files Processed</Typography>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-5 bg-green-50/10 border-green-100/50 shadow-none">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <UserCheck className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <Typography variant="h1" className="text-2xl font-medium text-gray-900">{selectedAnalysisDetail.candidateCount}</Typography>
+                    <Typography variant="caption" className="text-xs text-gray-600">Candidates Analyzed</Typography>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-5 bg-purple-50/10 border-purple-100/50 shadow-none">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <Typography variant="h1" className="text-2xl font-medium text-gray-900">
+                      {selectedAnalysisDetail.candidateCount > 0 ? Math.round((selectedAnalysisDetail.candidateCount / selectedAnalysisDetail.fileCount) * 100) / 100 : 0}
+                    </Typography>
+                    <Typography variant="caption" className="text-xs text-gray-600">Avg Candidates/File</Typography>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Top People List */}
+            <Card className="p-6 bg-white border border-gray-100 shadow-none">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <Typography variant="h3" className="text-base font-medium text-gray-900">Top Candidates from this Analysis</Typography>
+                  <Typography variant="caption" className="text-gray-500">Review the highest scored profiles included in this batch.</Typography>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {selectedAnalysisDetail.topCandidates.length > 0 ? (
+                  selectedAnalysisDetail.topCandidates.map((candidate, index) => (
+                    <div key={candidate._id || index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-3xl border border-gray-100 bg-gray-50">
+                      <div className="min-w-0">
+                        <Typography variant="body" className="text-sm font-semibold text-gray-900 truncate">{candidate.name}</Typography>
+                        <Typography variant="caption" className="text-[10px] text-gray-600">{candidate.email || candidate.linkedin || 'Candidate profile'}</Typography>
+                      </div>
+                      <div className="flex items-center gap-2 text-right">
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 border border-green-100">Score {candidate.score}</span>
+                        <Typography variant="caption" className="text-[10px] text-gray-600">{candidate.summary ? `${candidate.summary.slice(0, 50)}...` : 'No summary available'}</Typography>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <Typography variant="body" className="text-sm text-gray-600">No top candidate details are available for this analysis.</Typography>
+                )}
+              </div>
+            </Card>
+
+            <div className="pt-4 border-t border-gray-50 flex justify-end">
+              <Button variant="outline" onClick={() => setIsAnalysisModalOpen(false)} className="border-gray-100 shadow-none">
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <Typography variant="body" className="text-sm text-gray-600">Loading analysis details...</Typography>
+          </div>
+        )}
+      </Modal>
 
       {/* Shared Detail Modal */}
       <ApplicantDetailsModal 

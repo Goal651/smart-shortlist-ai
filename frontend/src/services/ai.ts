@@ -20,7 +20,7 @@ class AIService {
     const response = await apiClient.postFormData<ScreeningResponse>(
       API_ENDPOINTS.JOB.SCREEN(jobId),
       formData,
-      { timeout: 30000 }
+      { timeout: 120000 } // 2 minutes for Gemini processing + PDF extraction + DB operations
     );
     return response;
   }

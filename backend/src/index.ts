@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import Job from './models/Job';
 import Candidate from './models/Candidate';
+import Analysis from './models/Analysis';
 import { ProcessingService } from './services/processingService';
 import { GeminiService } from './services/geminiService';
 
@@ -115,6 +116,16 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
 
     console.log('Successfully processed', resumeData.length, 'out of', files.length, 'files');
 
+    // Persist the analysis summary before candidate save so candidates can be linked to it
+    const analysisRecord = new Analysis({
+      jobId: job._id,
+      jobTitle: job.title,
+      fileCount: files.length,
+      candidateCount: 0,
+      topScore: 0,
+    });
+    await analysisRecord.save();
+
     // 2. Batching Logic (5 resumes per call)
     const BATCH_SIZE = 5;
     for (let i = 0; i < resumeData.length; i += BATCH_SIZE) {
@@ -133,6 +144,7 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
             console.log('Saving candidate:', res.name || batch[index].name, '(score:', res.score, ')');
             const candidate = new Candidate({
               jobId: job._id,
+              analysisId: analysisRecord._id,
               name: res.name || batch[index].name,
               email: res.email,
               linkedin: res.linkedin,
@@ -154,13 +166,19 @@ app.post('/api/jobs/:jobId/screen', upload.array('resumes', 50), async (req: Req
 
     console.log('Final results: processed', files.length, 'files, created', totalResults.length, 'candidates');
 
+    // Update analysis summary counts now that candidates are saved
+    analysisRecord.candidateCount = totalResults.length;
+    analysisRecord.topScore = totalResults.reduce((max, candidate) => Math.max(max, candidate.score || 0), 0);
+    await analysisRecord.save();
+
     // FR3: In-Memory Processing (Privacy-First)
     // Clear heavy data from memory explicitly
     (resumeData as any) = null;
 
     res.json({ 
       processed: files.length,
-      candidates: totalResults.sort((a, b) => b.score - a.score) 
+      candidates: totalResults.sort((a, b) => b.score - a.score),
+      analysis: analysisRecord,
     });
 
   } catch (error) {
@@ -180,6 +198,47 @@ app.get('/api/jobs/:jobId/candidates', async (req: Request, res: Response) => {
     res.json(candidates);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch candidates" });
+  }
+});
+
+/**
+ * GET /api/analyses/recent
+ * Fetch recent screening analysis history
+ */
+app.get('/api/analyses/recent', async (req: Request, res: Response) => {
+  try {
+    const recent = await Analysis.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('-__v');
+
+    res.json(recent);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch recent analyses" });
+  }
+});
+
+/**
+ * GET /api/analyses/:id
+ * Fetch a single analysis with top candidate details for history modal
+ */
+app.get('/api/analyses/:id', async (req: Request, res: Response) => {
+  try {
+    const analysis = await Analysis.findById(req.params.id).select('-__v');
+    if (!analysis) return res.status(404).json({ error: "Analysis record not found" });
+
+    const topCandidates = await Candidate.find({ analysisId: analysis._id })
+      .sort({ score: -1 })
+      .limit(5)
+      .select('name score summary email linkedin');
+
+    res.json({
+      ...analysis.toObject(),
+      topCandidates,
+    });
+  } catch (error) {
+    console.error('Failed to fetch analysis details', error);
+    res.status(500).json({ error: "Failed to fetch analysis details" });
   }
 });
 
