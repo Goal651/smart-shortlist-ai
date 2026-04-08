@@ -15,6 +15,7 @@ export interface IJob extends Document {
     max: number;
     currency: string;
   };
+  isActive: boolean;       // Public visibility
   createdAt: Date;
 }
 
@@ -28,15 +29,16 @@ const JobSchema: Schema = new Schema({
     default: 'Full-time' 
   },
   requirements: {
-    skills: [{ type: String }],
+    skills: { type: [String], default: [] },
     minExperience: { type: Number, default: 0 },
-    education: { type: String }
+    education: { type: String, default: "" }
   },
   salaryRange: {
-    min: Number,
-    max: Number,
+    min: { type: Number },
+    max: { type: Number },
     currency: { type: String, default: "RWF" }
   },
+  isActive: { type: Boolean, default: true }, // Public visibility
   createdAt: { type: Date, default: Date.now }
 });
 
