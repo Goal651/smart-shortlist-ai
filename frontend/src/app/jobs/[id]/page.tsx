@@ -113,7 +113,9 @@ export default function JobDetailPage() {
       formDataToSend.append('email', formData.email);
       formDataToSend.append('phone', formData.phone);
       formDataToSend.append('linkedin', formData.linkedin);
-      formDataToSend.append('resume', formData.resume);
+      if (formData.resume) {
+        formDataToSend.append('resume', formData.resume);
+      }
 
       const response = await fetch('/api/applications', {
         method: 'POST',

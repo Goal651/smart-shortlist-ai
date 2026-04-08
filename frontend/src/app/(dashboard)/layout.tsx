@@ -14,6 +14,8 @@ import { Typography } from "@/components/ui/Typography";
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -35,9 +37,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return null;
   }
-
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
     <AppProvider>
