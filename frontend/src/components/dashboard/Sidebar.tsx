@@ -12,13 +12,15 @@ import {
   Settings,
   ChevronLeft,
   LogOut,
-  Bell
+  Bell,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Typography } from "@/components/ui/Typography";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Applications", href: "/dashboard/applications", icon: FileText },
   { label: "Jobs", href: "/jobs", icon: Briefcase },
   { label: "Candidates", href: "/candidates", icon: Users },
   { label: "Upload", href: "/upload", icon: Upload },
