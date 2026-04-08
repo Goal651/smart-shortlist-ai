@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Briefcase, Plus, Edit, Trash2, Eye, 
-  Search, Filter, ChevronDown, ChevronUp, Users, PlayCircle
+  Search, Filter, ChevronDown, ChevronUp, Users, PlayCircle, Mail
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +32,30 @@ interface Job {
   applicationCount?: number;
 }
 
+interface Application {
+  _id: string;
+  jobId: string;
+  jobTitle: string;
+  name: string;
+  email: string;
+  phone: string;
+  linkedin?: string;
+  resumeFile: string;
+  status: 'Applied' | 'Screened' | 'Rejected' | 'Accepted';
+  submittedAt: string;
+  screeningResult?: {
+    candidateId: string;
+    score: number;
+    summary: string;
+    topSkills: string[];
+    gaps: string[];
+    extractedText: string;
+    screenedAt: string;
+    emailSent: boolean;
+    emailSentAt?: string;
+  };
+}
+
 export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -45,6 +69,10 @@ export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [showApplicantsModal, setShowApplicantsModal] = useState(false);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [screeningJobId, setScreeningJobId] = useState<string | null>(null);
+  const [screening, setScreening] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -233,6 +261,70 @@ export default function JobsPage() {
     }
   };
 
+  const fetchApplications = async (jobId: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/applications?jobId=${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setApplications(data.applications || []);
+      } else {
+        console.error('Failed to fetch applications');
+      }
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+    }
+  };
+
+  const handleScreenApplications = async (jobId: string) => {
+    try {
+      setScreeningJobId(jobId);
+      setScreening(true);
+      
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/applications/screen/${jobId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Screening completed:', data);
+        
+        // Refresh applications to show screening results
+        await fetchApplications(jobId);
+        
+        setScreeningJobId(null);
+        setScreening(false);
+        setShowApplicantsModal(false);
+        
+        // Show success message
+        alert('Screening completed successfully! Emails will be sent to screened candidates.');
+      } else {
+        console.error('Failed to screen applications');
+        setScreeningJobId(null);
+        setScreening(false);
+      }
+    } catch (error) {
+      console.error('Error screening applications:', error);
+      setScreeningJobId(null);
+      setScreening(false);
+    }
+  };
+
+  const handleViewApplicants = (job: Job) => {
+    setSelectedJob(job);
+    setShowApplicantsModal(true);
+    fetchApplications(job._id);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -370,6 +462,27 @@ export default function JobsPage() {
                 </div>
                 
                 <div className="flex space-x-2 ml-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewApplicants(job)}
+                    className="flex items-center"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Applicants ({job.applicationCount || 0})
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleScreenApplications(job._id)}
+                    disabled={screeningJobId === job._id || screening || (job.applicationCount || 0) === 0}
+                    className="flex items-center text-green-600"
+                  >
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    {screeningJobId === job._id ? 'Screening...' : 'Screen All'}
+                  </Button>
+                  
                   <Button
                     variant="outline"
                     size="sm"
@@ -624,6 +737,162 @@ export default function JobsPage() {
                 <Button
                   variant="outline"
                   onClick={() => setSelectedJob(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Applicants Modal */}
+      {showApplicantsModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Applicants for {selectedJob.title}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Total Applications: {applications.length}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowApplicantsModal(false)}
+                >
+                  ×
+                </Button>
+              </div>
+
+              {/* Screening Button */}
+              {applications.length > 0 && (
+                <div className="mb-6">
+                  <Button
+                    onClick={() => handleScreenApplications(selectedJob._id)}
+                    disabled={screeningJobId === selectedJob._id || screening}
+                    className="w-full flex items-center justify-center text-green-600"
+                  >
+                    <PlayCircle className="h-5 w-5 mr-2" />
+                    {screeningJobId === selectedJob._id ? 'Screening in progress...' : `Screen All ${applications.length} Applicants`}
+                  </Button>
+                </div>
+              )}
+
+              {/* Applications List */}
+              <div className="space-y-4">
+                {applications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No applications yet</h3>
+                    <p className="text-gray-600">
+                      Applications will appear here when candidates apply for this position.
+                    </p>
+                  </div>
+                ) : (
+                  applications.map((application) => (
+                    <Card key={application._id} className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-2">
+                            <h4 className="font-semibold text-gray-900">{application.name}</h4>
+                            <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                              application.status === 'Applied' ? 'bg-blue-100 text-blue-700' :
+                              application.status === 'Screened' ? 'bg-green-100 text-green-700' :
+                              application.status === 'Accepted' ? 'bg-purple-100 text-purple-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {application.status}
+                            </span>
+                          </div>
+                          
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <div><strong>Email:</strong> {application.email}</div>
+                            <div><strong>Phone:</strong> {application.phone}</div>
+                            {application.linkedin && (
+                              <div><strong>LinkedIn:</strong> {application.linkedin}</div>
+                            )}
+                            <div><strong>Applied:</strong> {formatDate(application.submittedAt)}</div>
+                          </div>
+
+                          {/* Screening Results */}
+                          {application.screeningResult && (
+                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                              <h5 className="font-medium text-gray-900 mb-2">Screening Results</h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <strong>Score:</strong> 
+                                  <span className={`ml-2 px-2 py-1 rounded-full ${
+                                    application.screeningResult.score >= 80 ? 'bg-green-100 text-green-700' :
+                                    application.screeningResult.score >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-red-100 text-red-700'
+                                  }`}>
+                                    {application.screeningResult.score}/100
+                                  </span>
+                                </div>
+                                <div>
+                                  <strong>Screened:</strong> {formatDate(application.screeningResult.screenedAt)}
+                                </div>
+                                <div>
+                                  <strong>Email Sent:</strong> 
+                                  <span className={`ml-2 px-2 py-1 rounded-full ${
+                                    application.screeningResult.emailSent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {application.screeningResult.emailSent ? 'Yes' : 'No'}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {application.screeningResult.topSkills.length > 0 && (
+                                <div className="mt-3">
+                                  <strong>Top Skills:</strong>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {application.screeningResult.topSkills.map((skill, index) => (
+                                      <span
+                                        key={index}
+                                        className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {application.screeningResult.summary && (
+                                <div className="mt-3">
+                                  <strong>Summary:</strong>
+                                  <p className="text-gray-600 text-sm mt-1">{application.screeningResult.summary}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`mailto:${application.email}`)}
+                            className="flex items-center"
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Email
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowApplicantsModal(false)}
                 >
                   Close
                 </Button>
