@@ -1,6 +1,7 @@
 "use client";
 
-import { Search, Bell, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Bell, User, Briefcase } from "lucide-react";
 import { Typography } from "@/components/ui/Typography";
 
 interface TopbarProps {
@@ -9,6 +10,8 @@ interface TopbarProps {
 }
 
 export function Topbar({ onOpenNotif, onOpenProfile }: TopbarProps) {
+  const router = useRouter();
+  
   return (
     <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10 transition-all">
       <div className="flex-1 max-w-2xl">
@@ -39,6 +42,13 @@ export function Topbar({ onOpenNotif, onOpenProfile }: TopbarProps) {
           >
             <Bell className="h-4 w-4 group-hover:text-primary transition-colors" />
             <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-white shadow-none" />
+          </button>
+          
+          <button 
+            onClick={() => router.push('/jobs')}
+            className="p-2.5 rounded-xl hover:bg-gray-50 text-gray-600 relative transition-all group border border-gray-100/50 shadow-none transition-none"
+          >
+            <Briefcase className="h-4 w-4 group-hover:text-primary transition-colors" />
           </button>
           
           <button 
