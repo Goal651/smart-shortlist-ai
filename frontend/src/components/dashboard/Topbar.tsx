@@ -13,7 +13,7 @@ export function Topbar({ onOpenNotif, onOpenProfile }: TopbarProps) {
   const router = useRouter();
   
   return (
-    <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10 transition-all">
+    <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-10 transition-all">
       <div className="flex-1 max-w-2xl">
         <div className="relative group">
           <Search className="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-primary transition-colors" />

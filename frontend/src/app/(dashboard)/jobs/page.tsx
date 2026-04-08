@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Briefcase, Plus, Edit, Trash2, Eye, 
-  Search, Filter, ChevronDown, ChevronUp
+  Search, Filter, ChevronDown, ChevronUp, Users, PlayCircle
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -23,12 +23,13 @@ interface Job {
     education: string;
   };
   salaryRange?: {
-    min: number;
-    max: number;
+    min?: number;
+    max?: number;
     currency: string;
   };
   isActive: boolean;
   createdAt: string;
+  applicationCount?: number;
 }
 
 export default function JobsPage() {
@@ -61,7 +62,40 @@ export default function JobsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setJobs(data);
+        
+        // Fetch application counts for each job
+        const jobsWithCounts = await Promise.all(
+          data.map(async (job: Job) => {
+            try {
+              const appResponse = await fetch(`/api/applications?jobId=${job._id}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+              
+              if (appResponse.ok) {
+                const appData = await appResponse.json();
+                return {
+                  ...job,
+                  applicationCount: appData.pagination?.total || 0
+                };
+              } else {
+                console.error('Failed to fetch applications for job:', job._id);
+                return {
+                  ...job,
+                  applicationCount: 0
+                };
+              }
+            } catch (error) {
+              console.error('Error fetching applications for job:', job._id, error);
+              return {
+                ...job,
+                applicationCount: 0
+              };
+            }
+          })
+        );
+        setJobs(jobsWithCounts);
       } else {
         console.error('Failed to fetch jobs');
       }
@@ -404,13 +438,28 @@ export default function JobsPage() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (editingJob) {
-                  handleUpdateJob(editingJob);
+                  handleUpdateJob({
+                    ...editingJob,
+                    title: e.currentTarget.querySelector<HTMLInputElement>('input[name="title"]')?.value || '',
+                    description: e.currentTarget.querySelector<HTMLInputElement>('textarea[name="description"]')?.value || '',
+                    location: e.currentTarget.querySelector<HTMLInputElement>('input[name="location"]')?.value || 'Remote',
+                    type: (e.currentTarget.querySelector<HTMLSelectElement>('select[name="type"]')?.value as 'Full-time' | 'Part-time' | 'Contract' | 'Remote') || 'Full-time',
+                    requirements: {
+                      skills: [],
+                      minExperience: 0,
+                      education: ''
+                    },
+                    salaryRange: {
+                      currency: 'RWF'
+                    },
+                    isActive: true
+                  });
                 } else {
                   handleCreateJob({
-                    title: e.currentTarget.title?.value || '',
-                    description: e.currentTarget.description?.value || '',
-                    location: e.currentTarget.location?.value || 'Remote',
-                    type: e.currentTarget.type?.value || 'Full-time',
+                    title: e.currentTarget.querySelector<HTMLInputElement>('input[name="title"]')?.value || '',
+                    description: e.currentTarget.querySelector<HTMLTextAreaElement>('textarea[name="description"]')?.value || '',
+                    location: e.currentTarget.querySelector<HTMLInputElement>('input[name="location"]')?.value || 'Remote',
+                    type: (e.currentTarget.querySelector<HTMLSelectElement>('select[name="type"]')?.value as 'Full-time' | 'Part-time' | 'Contract' | 'Remote') || 'Full-time',
                     requirements: {
                       skills: [],
                       minExperience: 0,

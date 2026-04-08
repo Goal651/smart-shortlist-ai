@@ -117,7 +117,7 @@ export default function JobListingsPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+      <section className="bg-linear-to-r from-blue-600 to-indigo-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h2 className="text-4xl font-bold mb-4">Join Our Team</h2>
