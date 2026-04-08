@@ -9,6 +9,7 @@ import Analysis from './models/Analysis';
 import User from './models/User';
 import { ProcessingService } from './services/processingService';
 import { GeminiService } from './services/geminiService';
+import { authenticateToken, requireOwner, generateToken } from './middleware/auth';
 
 dotenv.config();
 
@@ -355,9 +356,13 @@ app.post('/api/auth/owner/login', async (req: Request, res: Response) => {
     owner.lastLogin = new Date();
     await owner.save();
 
-    // Return owner info (without password)
+    // Generate JWT token
+    const token = generateToken(owner._id.toString());
+
+    // Return owner info and token
     res.json({
       message: "Login successful",
+      token,
       owner: {
         _id: owner._id,
         email: owner.email,
@@ -373,6 +378,24 @@ app.post('/api/auth/owner/login', async (req: Request, res: Response) => {
     console.error('Owner login error:', error);
     res.status(500).json({ error: "Login failed" });
   }
+});
+
+/**
+ * Get Current User Profile
+ * GET /api/auth/me
+ */
+app.get('/api/auth/me', authenticateToken, (req: any, res: Response) => {
+  res.json({
+    user: {
+      _id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role,
+      company: req.user.company,
+      lastLogin: req.user.lastLogin,
+      createdAt: req.user.createdAt
+    }
+  });
 });
 
 // Catch-all route for debugging
