@@ -6,6 +6,7 @@ import multer from 'multer';
 import Job from './models/Job';
 import Candidate from './models/Candidate';
 import Analysis from './models/Analysis';
+import User from './models/User';
 import { ProcessingService } from './services/processingService';
 import { GeminiService } from './services/geminiService';
 
@@ -262,6 +263,116 @@ app.get('/health', (req: Request, res: Response) => {
     system: "TypeScript + Node.js",
     model: "Gemini 1.5 Flash"
   });
+});
+
+/**
+ * Seed Owner User Endpoint
+ * POST /api/seed/owner
+ */
+app.post('/api/seed/owner', async (req: Request, res: Response) => {
+  try {
+    // Check if owner already exists
+    const existingOwner = await User.findOne({ role: 'owner' });
+    if (existingOwner) {
+      return res.status(400).json({ 
+        error: "Owner user already exists",
+        owner: {
+          email: existingOwner.email,
+          name: existingOwner.name,
+          role: existingOwner.role
+        }
+      });
+    }
+
+    // Create owner user
+    const bcrypt = require('bcryptjs');
+    const ownerEmail = process.env.OWNER_EMAIL || 'owner@umurava.ai';
+    const ownerPassword = process.env.OWNER_PASSWORD || 'Umurava2024!';
+    const ownerName = process.env.OWNER_NAME || 'Umurava Owner';
+
+    // Hash password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(ownerPassword, saltRounds);
+
+    // Create owner
+    const owner = new User({
+      email: ownerEmail,
+      password: hashedPassword,
+      name: ownerName,
+      role: 'owner',
+      company: 'Umurava AI',
+      isActive: true
+    });
+
+    await owner.save();
+    
+    console.log('Owner user created successfully!');
+    console.log('Email:', ownerEmail);
+    console.log('Name:', ownerName);
+
+    res.status(201).json({ 
+      message: "Owner user created successfully",
+      owner: {
+        email: owner.email,
+        name: owner.name,
+        role: owner.role,
+        company: owner.company
+      }
+    });
+
+  } catch (error) {
+    console.error('Error seeding owner:', error);
+    res.status(500).json({ error: "Failed to create owner user" });
+  }
+});
+
+/**
+ * Owner Login Endpoint
+ * POST /api/auth/owner/login
+ */
+app.post('/api/auth/owner/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Find owner user
+    const owner = await User.findOne({ email: email.toLowerCase(), role: 'owner', isActive: true });
+    if (!owner) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Verify password
+    const bcrypt = require('bcryptjs');
+    const isPasswordValid = await bcrypt.compare(password, owner.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Update last login
+    owner.lastLogin = new Date();
+    await owner.save();
+
+    // Return owner info (without password)
+    res.json({
+      message: "Login successful",
+      owner: {
+        _id: owner._id,
+        email: owner.email,
+        name: owner.name,
+        role: owner.role,
+        company: owner.company,
+        lastLogin: owner.lastLogin,
+        createdAt: owner.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Owner login error:', error);
+    res.status(500).json({ error: "Login failed" });
+  }
 });
 
 // Catch-all route for debugging
