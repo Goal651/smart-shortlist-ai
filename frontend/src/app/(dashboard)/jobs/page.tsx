@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Briefcase, Plus, Edit, Trash2, Eye, 
-  Search, Filter, ChevronDown, ChevronUp, Users, PlayCircle, Mail
+  Search, Filter, ChevronDown, ChevronUp, Users, PlayCircle, Mail, X
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Typography } from "@/components/ui/Typography";
+import { Modal } from "@/components/ui/Modal";
+import { apiClient } from "@/services/client";
 
 interface Job {
   _id: string;
@@ -73,6 +76,14 @@ export default function JobsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [screeningJobId, setScreeningJobId] = useState<string | null>(null);
   const [screening, setScreening] = useState(false);
+  
+  // Form state for create/edit modal
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: 'Remote',
+    type: 'Full-time' as 'Full-time' | 'Part-time' | 'Contract' | 'Remote'
+  });
 
   useEffect(() => {
     fetchJobs();
@@ -81,51 +92,21 @@ export default function JobsPage() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/jobs', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Fetch application counts for each job
-        const jobsWithCounts = await Promise.all(
-          data.map(async (job: Job) => {
-            try {
-              const appResponse = await fetch(`/api/applications?jobId=${job._id}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
-              
-              if (appResponse.ok) {
-                const appData = await appResponse.json();
-                return {
-                  ...job,
-                  applicationCount: appData.pagination?.total || 0
-                };
-              } else {
-                console.error('Failed to fetch applications for job:', job._id);
-                return {
-                  ...job,
-                  applicationCount: 0
-                };
-              }
-            } catch (error) {
-              console.error('Error fetching applications for job:', job._id, error);
-              return {
-                ...job,
-                applicationCount: 0
-              };
-            }
-          })
-        );
+      const response = await apiClient.get<Job[]>('/jobs');
+      
+      if (response.success && response.data) {
+        const jobsWithCounts = await Promise.all(response.data.map(async (job: Job) => {
+          try {
+            const appResponse = await apiClient.get<{ pagination: { total: number } }>('/applications', { jobId: job._id, limit: 1 });
+            return {
+              ...job,
+              applicationCount: appResponse.data?.pagination?.total || 0
+            };
+          } catch {
+            return { ...job, applicationCount: 0 };
+          }
+        }));
         setJobs(jobsWithCounts);
-      } else {
-        console.error('Failed to fetch jobs');
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -134,98 +115,75 @@ export default function JobsPage() {
     }
   };
 
-  const handleCreateJob = async (jobData: Partial<Job>) => {
+  const handleCreateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(jobData)
-      });
-
-      if (response.ok) {
-        const newJob = await response.json();
-        setJobs([...jobs, newJob]);
+      const response = await apiClient.post('/jobs', formData);
+      if (response.success) {
         setShowCreateModal(false);
-      } else {
-        console.error('Failed to create job');
+        setFormData({ title: '', description: '', location: 'Remote', type: 'Full-time' });
+        fetchJobs();
       }
     } catch (error) {
       console.error('Error creating job:', error);
     }
   };
 
-  const handleUpdateJob = async (jobData: Partial<Job>) => {
+  const handleUpdateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!editingJob) return;
-    
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/jobs/${editingJob._id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(jobData)
-      });
-
-      if (response.ok) {
-        const updatedJob = await response.json();
-        setJobs(jobs.map(job => 
-          job._id === updatedJob._id ? updatedJob : job
-        ));
+      const response = await apiClient.patch(`/jobs/${editingJob._id}`, formData);
+      if (response.success) {
         setEditingJob(null);
-      } else {
-        console.error('Failed to update job');
+        setFormData({ title: '', description: '', location: 'Remote', type: 'Full-time' });
+        fetchJobs();
       }
     } catch (error) {
       console.error('Error updating job:', error);
     }
   };
+  
+  const handleOpenEditModal = (job: Job) => {
+    setFormData({
+      title: job.title,
+      description: job.description,
+      location: job.location,
+      type: job.type
+    });
+    setEditingJob(job);
+  };
+  
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setEditingJob(null);
+    setFormData({ title: '', description: '', location: 'Remote', type: 'Full-time' });
+  };
+  
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    if (editingJob) {
+      await handleUpdateJob(e);
+    } else {
+      await handleCreateJob(e);
+    }
+  };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
-    
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/jobs/${jobId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setJobs(jobs.filter(job => job._id !== jobId));
-      } else {
-        console.error('Failed to delete job');
+      const response = await apiClient.delete(`/jobs/${jobId}`);
+      if (response.success) {
+        fetchJobs();
       }
     } catch (error) {
       console.error('Error deleting job:', error);
     }
   };
 
-  const handleToggleActive = async (jobId: string, isActive: boolean) => {
+  const handleToggleActive = async (jobId: string, targetStatus: boolean) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/jobs/${jobId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isActive })
-      });
-
-      if (response.ok) {
-        setJobs(jobs.map(job => 
-          job._id === jobId ? { ...job, isActive } : job
-        ));
-      } else {
-        console.error('Failed to update job status');
+      const response = await apiClient.patch(`/jobs/${jobId}`, { isActive: targetStatus });
+      if (response.success) {
+        fetchJobs();
       }
     } catch (error) {
       console.error('Error toggling job status:', error);
@@ -263,21 +221,17 @@ export default function JobsPage() {
 
   const fetchApplications = async (jobId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/applications?jobId=${jobId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data.applications || []);
-      } else {
-        console.error('Failed to fetch applications');
+      setLoading(true);
+      const response = await apiClient.get<{ applications: Application[] }>(`/applications`, { jobId });
+      if (response.success && response.data) {
+        setApplications(response.data.applications || []);
+        setSelectedJob(jobs.find(j => j._id === jobId) || null);
+        setShowApplicantsModal(true);
       }
     } catch (error) {
       console.error('Error fetching applications:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -286,27 +240,13 @@ export default function JobsPage() {
       setScreeningJobId(jobId);
       setScreening(true);
       
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/applications/screen/${jobId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Screening completed:', data);
-        
-        // Refresh applications to show screening results
-        await fetchApplications(jobId);
-        
+      const response = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${jobId}/screen-all`);
+      
+      if (response.success && response.data) {
         setScreeningJobId(null);
         setScreening(false);
-        setShowApplicantsModal(false);
-        
-        // Show success message
-        alert('Screening completed successfully! Emails will be sent to screened candidates.');
+        // Redirect to analysis history with the new analysis opened
+        router.push(`/upload?tab=history&analysisId=${response.data.analysisId}`);
       } else {
         console.error('Failed to screen applications');
         setScreeningJobId(null);
@@ -337,16 +277,16 @@ export default function JobsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Job Management</h1>
           <p className="text-gray-600">Create and manage job postings</p>
         </div>
         
-        <div className="flex space-x-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
           <Button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center"
+            className="flex items-center justify-center"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create Job
@@ -355,7 +295,7 @@ export default function JobsPage() {
           <Button
             variant="outline"
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center"
+            className="flex items-center justify-center"
           >
             <Filter className="h-4 w-4 mr-2" />
             Filters
@@ -367,25 +307,24 @@ export default function JobsPage() {
       {/* Filters */}
       {showFilters && (
         <Card className="p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
               placeholder="Search jobs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            
-            <select
+            <Select
+              options={[
+                { label: "All Types", value: "" },
+                { label: "Full-time", value: "Full-time" },
+                { label: "Part-time", value: "Part-time" },
+                { label: "Contract", value: "Contract" },
+                { label: "Remote", value: "Remote" },
+              ]}
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Types</option>
-              <option value="Full-time">Full-time</option>
-              <option value="Part-time">Part-time</option>
-              <option value="Contract">Contract</option>
-              <option value="Remote">Remote</option>
-            </select>
-            
+              onChange={setTypeFilter}
+              placeholder="All Types"
+            />
             <Input
               placeholder="Filter by location"
               value={locationFilter}
@@ -461,32 +400,22 @@ export default function JobsPage() {
                   )}
                 </div>
                 
-                <div className="flex space-x-2 ml-4">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-4 sm:mt-0 ml-0 sm:ml-4">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleViewApplicants(job)}
+                    onClick={() => router.push(`/jobs/${job._id}`)}
                     className="flex items-center"
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Applicants ({job.applicationCount || 0})
                   </Button>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleScreenApplications(job._id)}
-                    disabled={screeningJobId === job._id || screening || (job.applicationCount || 0) === 0}
-                    className="flex items-center text-green-600"
-                  >
-                    <PlayCircle className="h-4 w-4 mr-2" />
-                    {screeningJobId === job._id ? 'Screening...' : 'Screen All'}
-                  </Button>
                   
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setSelectedJob(job)}
+                    onClick={() => router.push(`/jobs/${job._id}`)}
                     className="flex items-center"
                   >
                     <Eye className="h-4 w-4 mr-2" />
@@ -496,7 +425,7 @@ export default function JobsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setEditingJob(job)}
+                    onClick={() => handleOpenEditModal(job)}
                     className="flex items-center"
                   >
                     <Edit className="h-4 w-4 mr-2" />
@@ -530,69 +459,31 @@ export default function JobsPage() {
 
       {/* Create/Edit Modal */}
       {(showCreateModal || editingJob) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">
+              <div className="flex justify-between items-center mb-6">
+                <Typography variant="h2">
                   {editingJob ? 'Edit Job' : 'Create New Job'}
-                </h2>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingJob(null);
-                  }}
+                </Typography>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  ×
-                </Button>
+                  <X className="h-6 w-6" />
+                </button>
               </div>
               
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (editingJob) {
-                  handleUpdateJob({
-                    ...editingJob,
-                    title: e.currentTarget.querySelector<HTMLInputElement>('input[name="title"]')?.value || '',
-                    description: e.currentTarget.querySelector<HTMLInputElement>('textarea[name="description"]')?.value || '',
-                    location: e.currentTarget.querySelector<HTMLInputElement>('input[name="location"]')?.value || 'Remote',
-                    type: (e.currentTarget.querySelector<HTMLSelectElement>('select[name="type"]')?.value as 'Full-time' | 'Part-time' | 'Contract' | 'Remote') || 'Full-time',
-                    requirements: {
-                      skills: [],
-                      minExperience: 0,
-                      education: ''
-                    },
-                    salaryRange: {
-                      currency: 'RWF'
-                    },
-                    isActive: true
-                  });
-                } else {
-                  handleCreateJob({
-                    title: e.currentTarget.querySelector<HTMLInputElement>('input[name="title"]')?.value || '',
-                    description: e.currentTarget.querySelector<HTMLTextAreaElement>('textarea[name="description"]')?.value || '',
-                    location: e.currentTarget.querySelector<HTMLInputElement>('input[name="location"]')?.value || 'Remote',
-                    type: (e.currentTarget.querySelector<HTMLSelectElement>('select[name="type"]')?.value as 'Full-time' | 'Part-time' | 'Contract' | 'Remote') || 'Full-time',
-                    requirements: {
-                      skills: [],
-                      minExperience: 0,
-                      education: ''
-                    },
-                    salaryRange: {
-                      currency: 'RWF'
-                    },
-                    isActive: true
-                  });
-                }
-              }} className="space-y-4">
+              <form onSubmit={handleSubmitForm} className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Job Title
                   </label>
-                  <input
+                  <Input
                     type="text"
-                    defaultValue={editingJob?.title || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter job title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     required
                   />
                 </div>
@@ -602,9 +493,11 @@ export default function JobsPage() {
                     Description
                   </label>
                   <textarea
-                    defaultValue={editingJob?.description || ''}
+                    placeholder="Enter job description"
                     rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     required
                   />
                 </div>
@@ -614,36 +507,37 @@ export default function JobsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Location
                     </label>
-                    <input
+                    <Input
                       type="text"
-                      defaultValue={editingJob?.location || 'Remote'}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., New York, Remote"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Type
+                      Job Type
                     </label>
-                    <select
-                      defaultValue={editingJob?.type || 'Full-time'}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Full-time">Full-time</option>
-                      <option value="Part-time">Part-time</option>
-                      <option value="Contract">Contract</option>
-                      <option value="Remote">Remote</option>
-                    </select>
+                    <Select
+                      options={[
+                        { label: "Full-time", value: "Full-time" },
+                        { label: "Part-time", value: "Part-time" },
+                        { label: "Contract", value: "Contract" },
+                        { label: "Remote", value: "Remote" },
+                      ]}
+                      value={formData.type}
+                      onChange={(value) => setFormData({ ...formData, type: value as 'Full-time' | 'Part-time' | 'Contract' | 'Remote' })}
+                      placeholder="Select job type"
+                    />
                   </div>
                 </div>
                 
-                <div className="flex justify-end space-x-3 mt-6">
+                <div className="flex justify-end gap-3 pt-4">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingJob(null);
-                    }}
+                    onClick={handleCloseModal}
+                    type="button"
                   >
                     Cancel
                   </Button>
@@ -654,13 +548,13 @@ export default function JobsPage() {
                 </div>
               </form>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Job Details Modal */}
       {selectedJob && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
@@ -748,7 +642,7 @@ export default function JobsPage() {
 
       {/* Applicants Modal */}
       {showApplicantsModal && selectedJob && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">

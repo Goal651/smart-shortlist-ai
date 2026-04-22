@@ -30,6 +30,8 @@ import { Typography } from "@/components/ui/Typography";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 const categories = [
   { id: "profile", label: "My Profile", icon: User },
@@ -41,11 +43,18 @@ const categories = [
 
 export default function SettingsPage() {
   const [activeCategory, setActiveCategory] = useState("profile");
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      <div className="space-y-1">
-        <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900 leading-tight">Settings</Typography>
+        <div className="space-y-1">
+        <Typography variant="h1" className="text-2xl font-semibold tracking-tight text-gray-900 leading-tight">Settings</Typography>
         <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">Configure your recruitment preferences and account details</Typography>
       </div>
 
@@ -59,22 +68,22 @@ export default function SettingsPage() {
                     onClick={() => setActiveCategory(cat.id)}
                     className={cn(
                       "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group",
-                      activeCategory === cat.id 
-                        ? "bg-primary text-white shadow-none" 
+                      activeCategory === cat.id
+                        ? "bg-primary text-white shadow-none"
                         : "text-gray-600 hover:bg-gray-50"
                     )}
                   >
                     <div className="flex items-center space-x-3">
                       <cat.icon className={cn("h-4 w-4", activeCategory === cat.id ? "text-white" : "text-gray-600 group-hover:text-gray-900")} />
-                      <span className="text-xs font-medium">{cat.label}</span>
+                      <span className="text-sm font-medium">{cat.label}</span>
                     </div>
                     <ChevronRight className={cn("h-3 w-3 opacity-50", activeCategory === cat.id ? "block" : "hidden group-hover:block")} />
                   </button>
                ))}
                <div className="mt-4 pt-4 border-t border-gray-50 px-2 pb-2">
-                  <button className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-none group">
+                  <button onClick={handleLogout} className="w-full flex items-center space-x-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors group">
                      <LogOut className="h-4 w-4" />
-                     <span className="text-[10px] font-medium tracking-widest leading-none">Sign Out</span>
+                     <span className="text-sm font-medium">Sign Out</span>
                   </button>
                </div>
             </Card>

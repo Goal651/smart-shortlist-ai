@@ -8,11 +8,18 @@ import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsMo
 import { useJobs, useScreening } from '@/hooks/useApi';
 import { CandidateWithUI } from '@/types/request';
 
+const PAGE_SIZE = 5;
+
 interface CandidateWithJob extends CandidateWithUI {
   jobTitle: string;
 }
 
-export function RecentCandidatesTable() {
+interface RecentCandidatesTableProps {
+  currentPage: number;
+  onTotalPagesChange: (total: number) => void;
+}
+
+export function RecentCandidatesTable({ currentPage, onTotalPagesChange }: RecentCandidatesTableProps) {
   const [selectedApplicant, setSelectedApplicant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [recentCandidates, setRecentCandidates] = useState<CandidateWithJob[]>([]);
@@ -29,10 +36,16 @@ export function RecentCandidatesTable() {
         ...candidate,
         jobTitle: jobs[0]?.title || 'Unknown Job'
       }));
-      
-      setRecentCandidates(candidatesWithJob.slice(0, 5)); // Show only 5 most recent
+      setRecentCandidates(candidatesWithJob);
     }
   }, [candidates, jobs]);
+
+  // Notify parent of total pages
+  useEffect(() => {
+    onTotalPagesChange(Math.max(1, Math.ceil(recentCandidates.length / PAGE_SIZE)));
+  }, [recentCandidates.length, onTotalPagesChange]);
+
+  const paged = recentCandidates.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleOpenModal = (applicant: CandidateWithJob) => {
     setSelectedApplicant(applicant);
@@ -55,7 +68,7 @@ export function RecentCandidatesTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {recentCandidates.map((candidate) => (
+            {paged.map((candidate) => (
               <tr key={candidate._id} className="border-b border-gray-50 last:border-0 grow">
                 <td className="px-6 py-5">
                   <Typography variant="body" className="text-sm font-medium text-gray-900">{candidate.name}</Typography>

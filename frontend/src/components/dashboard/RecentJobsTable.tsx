@@ -2,6 +2,9 @@ import { Typography } from "@/components/ui/Typography";
 import { cn } from "@/lib/utils";
 import { useJobs, useScreening } from '@/hooks/useApi';
 import { useEffect, useState } from 'react';
+import { apiClient } from '@/services/client';
+
+const PAGE_SIZE = 5;
 
 interface JobWithStats {
   _id: string;
@@ -12,20 +15,24 @@ interface JobWithStats {
   created: string;
 }
 
-export function RecentJobsTable() {
+interface RecentJobsTableProps {
+  currentPage: number;
+  onTotalPagesChange: (total: number) => void;
+}
+
+export function RecentJobsTable({ currentPage, onTotalPagesChange }: RecentJobsTableProps) {
   const { jobs } = useJobs();
   const [jobsWithStats, setJobsWithStats] = useState<JobWithStats[]>([]);
 
   useEffect(() => {
     const calculateJobStats = async () => {
       const jobsStats: JobWithStats[] = await Promise.all(jobs.map(async (job) => {
-        // Fetch candidates for this job to calculate real stats
         try {
-          const response = await fetch(`/api/jobs/${job._id}/candidates`);
-          const jobCandidates = response.ok ? await response.json() : [];
+          const response = await apiClient.get<any[]>(`/candidates/job/${job._id}`);
+          const jobCandidates = response.success && response.data ? response.data : [];
           
           const avgScore = jobCandidates.length > 0 
-            ? Math.round(jobCandidates.reduce((sum: number, c: any) => sum + c.score, 0) / jobCandidates.length)
+            ? Math.round(jobCandidates.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / jobCandidates.length)
             : 0;
           
           return {
@@ -56,6 +63,14 @@ export function RecentJobsTable() {
       calculateJobStats();
     }
   }, [jobs]);
+
+  // Notify parent of total pages whenever data changes
+  useEffect(() => {
+    onTotalPagesChange(Math.max(1, Math.ceil(jobsWithStats.length / PAGE_SIZE)));
+  }, [jobsWithStats.length, onTotalPagesChange]);
+
+  const paged = jobsWithStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="w-full bg-white rounded-2xl border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
@@ -70,7 +85,7 @@ export function RecentJobsTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {jobsWithStats.map((job) => (
+            {paged.map((job) => (
               <tr key={job._id} className="border-b border-gray-50 last:border-0 grow">
                 <td className="px-6 py-5">
                   <Typography variant="body" className="font-medium text-gray-900">{job.title}</Typography>

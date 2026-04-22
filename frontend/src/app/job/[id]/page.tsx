@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Typography } from "@/components/ui/Typography";
+import { apiClient } from "@/services/client";
 
 interface Job {
   _id: string;
@@ -59,10 +60,9 @@ export default function JobDetailPage() {
 
   const fetchJob = async () => {
     try {
-      const response = await fetch(`/api/jobs/${jobId}/public`);
-      if (response.ok) {
-        const data = await response.json();
-        setJob(data);
+      const response = await apiClient.get<Job>(`/jobs/${jobId}/public`);
+      if (response.success && response.data) {
+        setJob(response.data);
       } else {
         router.push('/');
       }
@@ -117,12 +117,9 @@ export default function JobDetailPage() {
         formDataToSend.append('resume', formData.resume);
       }
 
-      const response = await fetch('/api/applications', {
-        method: 'POST',
-        body: formDataToSend,
-      });
+      const response = await apiClient.postFormData('/applications', formDataToSend);
 
-      if (response.ok) {
+      if (response.success) {
         setShowSuccess(true);
         // Reset form
         setFormData({
@@ -133,11 +130,10 @@ export default function JobDetailPage() {
           resume: null as File | null
         });
       } else {
-        const error = await response.json();
-        setErrors({ submit: error.error || 'Failed to submit application' });
+        setErrors({ submit: response.message || 'Failed to submit application' });
       }
-    } catch (error) {
-      setErrors({ submit: 'Network error. Please try again.' });
+    } catch (error: any) {
+      setErrors({ submit: error.response?.data?.error || 'Network error. Please try again.' });
     } finally {
       setSubmitting(false);
     }

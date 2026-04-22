@@ -1,120 +1,256 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GEMININI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+const apiKey =
+  process.env.GEMINI_API_KEY ||
+  process.env.GEMININI_API_KEY ||
+  '';
+
+if (!apiKey) {
+  console.warn('⚠️ Gemini API key not found');
+}
+
+const genAI = new GoogleGenerativeAI(apiKey);
+
+const model = genAI.getGenerativeModel({
+  model: 'gemini-1.5-flash'
+});
 
 export interface ScreeningResult {
   name: string;
+  email?: string;
+  linkedin?: string;
   score: number;
   summary: string;
   top_skills: string[];
   gaps: string[];
   status: 'Shortlisted' | 'Review' | 'Rejected';
-  email?: string;
-  linkedin?: string;
-}
-
-async function listModels() {
-  try {
-    // This fetches the models metadata from the API
-    const request = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
-    const data = await request.json();
-    
-    console.log("--- Available Models for your Key ---");
-    data.models.forEach((m: any) => {
-      console.log(`Name: ${m.name} | Methods: ${m.supportedGenerationMethods}`);
-    });
-  } catch (error) {
-    console.error("Could not list models:", error);
-  }
 }
 
 export class GeminiService {
+
   /**
-   * Screens a batch of resumes against a job description.
-   * @param jobDescription The JD text.
-   * @param resumes Array of extracted resume texts.
-   * @param retryCount Number of retries for rate limits.
-   * @returns Array of screening results.
+   * GENERAL HR SCREENING
+   * Works for ANY job role or industry
    */
   static async screenResumes(
-    jobDescription: string, 
-    resumes: string[], 
+    jobDescription: string,
+    resumes: string[],
     retryCount = 0
   ): Promise<ScreeningResult[]> {
-  
+
     const prompt = `
-      You are an Expert Technical Recruiter at Umurava, specializing in the Rwandan and African tech market.
-      Your task is to screen the following resumes against the Job Description (JD) provided.
+You are a professional Human Resources (HR) specialist.
 
-      ### JOB DESCRIPTION:
-      ${jobDescription}
+Your role is to screen job applicants for ANY industry.
 
-      ### RESUMES TO SCREEN:
-      ${resumes.map((text, i) => `--- RESUME ${i + 1} ---\n${text}`).join('\n\n')}
+The job could be:
 
-      ### INSTRUCTIONS:
-      1. Analyze each resume carefully.
-      2. Provide a score based on these weights:
-         - Technical Skills (50%)
-         - Project Evidence (30%)
-         - Experience Relevance (20%)
-      3. For the "Rwandan Context", prioritize candidates with experience in local tech ecosystems, regional projects, or education from institutions like CMU-Africa or ALU if present.
-      4. Extract the "email" and "linkedin" URL if available.
-      5. Return a JSON array where each object corresponds to a resume in order.
-      6. The response must follow this JSON schema strictly:
-      [
-        {
-          "name": "Full Name",
-          "email": "email@example.com",
-          "linkedin": "https://linkedin.com/in/username",
-          "score": 85,
-          "summary": "2-sentence justification string.",
-          "top_skills": ["Skill1", "Skill2"],
-          "gaps": ["Gap1", "Gap2"],
-          "status": "Shortlisted | Review | Rejected"
-        }
-      ]
-      
-      Status criteria:
-      - Shortlisted: Score >= 80
-      - Review: 60 <= Score < 80
-      - Rejected: Score < 60
+- Technology
+- Finance
+- Sales
+- Marketing
+- Administration
+- Customer Service
+- Healthcare
+- Logistics
+- Education
+- Hospitality
+- Construction
+- Management
+- Operations
+- Any profession
 
-      ONLY return the JSON array. No preamble or markdown formatting.
-    `;
+You must evaluate candidates fairly based ONLY on the job description provided.
+
+Do NOT prioritize any specific:
+
+- country
+- university
+- region
+- technology
+- background
+
+Evaluate candidates using general HR best practices.
+
+------------------------------------------------
+
+JOB DESCRIPTION:
+
+${jobDescription}
+
+------------------------------------------------
+
+RESUMES:
+
+${resumes.map((r, i) =>
+  `--- RESUME ${i + 1} ---\n${r}`
+).join('\n\n')}
+
+------------------------------------------------
+
+SCORING FRAMEWORK:
+
+Score candidates using:
+
+1) Relevant Skills — 40%
+2) Work Experience — 30%
+3) Education / Certifications — 15%
+4) Communication / Professionalism — 10%
+5) Cultural / Role Fit — 5%
+
+------------------------------------------------
+
+STATUS RULES:
+
+Score >= 80 → Shortlisted
+
+Score 60–79 → Review
+
+Score < 60 → Rejected
+
+------------------------------------------------
+
+Return ONLY valid JSON.
+
+Each object MUST follow:
+
+[
+  {
+    "name": "Full Name",
+    "email": "email@example.com",
+    "linkedin": "https://linkedin.com/in/user",
+    "score": 85,
+    "summary": "Short explanation of suitability",
+    "top_skills": ["Skill1", "Skill2"],
+    "gaps": ["Gap1", "Gap2"],
+    "status": "Shortlisted"
+  }
+]
+
+IMPORTANT:
+
+- Return results in the SAME ORDER as resumes
+- Do NOT include explanations outside JSON
+- Do NOT include markdown
+- Do NOT include extra text
+`;
 
     try {
-      const result = await model.generateContent(prompt);
-      console.log(result)
-      const response = await result.response;
-      console.log(response)
-      const text = response.text().trim();
-      
-      // Robust JSON extraction
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('No valid JSON array found in Gemini response');
-      }
-      
-      return JSON.parse(jsonMatch[0]);
-    } catch (error: any) {
-      // Handle Rate Limits (429)
-      if (error?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 2000;
-        console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
-        await new Promise(res => setTimeout(res, delay));
-        return this.screenResumes(jobDescription, resumes, retryCount + 1);
+      console.log(
+        '🤖 Screening',
+        resumes.length,
+        'resumes'
+      );
+
+      if (!resumes || resumes.length === 0) {
+        return [];
       }
 
-      console.error('Gemini API Error:', error);
-      console.error('Full error object:', JSON.stringify(error, null, 2));
-      if (error.response) {
-        console.error('Error response:', error.response);
+      const result =
+        await model.generateContent(prompt);
+
+      const response =
+        await result.response;
+
+      const text =
+        response.text().trim();
+
+      console.log(
+        '📄 Gemini response:',
+        text.substring(0, 400)
+      );
+
+      const parsed =
+        this.extractJSON(text);
+
+      console.log(
+        '✅ Parsed',
+        parsed.length,
+        'results'
+      );
+
+      return parsed;
+
+    } catch (error: any) {
+
+      if (
+        error?.status === 429 &&
+        retryCount < 3
+      ) {
+        const delay =
+          Math.pow(2, retryCount) * 2000;
+
+        console.warn(
+          `⏳ Rate limit. Retrying in ${delay}ms`
+        );
+
+        await new Promise(res =>
+          setTimeout(res, delay)
+        );
+
+        return this.screenResumes(
+          jobDescription,
+          resumes,
+          retryCount + 1
+        );
       }
-      throw new Error('AI Screening failed');
+
+      console.error(
+        '❌ Gemini API Error:',
+        error
+      );
+
+      throw new Error(
+        'AI screening failed'
+      );
+    }
+  }
+
+  /**
+   * Safe JSON extraction
+   */
+  private static extractJSON(
+    text: string
+  ): ScreeningResult[] {
+
+    try {
+
+      const arrayMatch =
+        text.match(/\[[\s\S]*\]/);
+
+      if (arrayMatch) {
+        return JSON.parse(
+          arrayMatch[0]
+        );
+      }
+
+      const objectMatch =
+        text.match(/\{[\s\S]*\}/);
+
+      if (objectMatch) {
+        return [
+          JSON.parse(
+            objectMatch[0]
+          )
+        ];
+      }
+
+      throw new Error(
+        'No valid JSON found'
+      );
+
+    } catch (err) {
+
+      console.error(
+        '❌ JSON parse failed'
+      );
+
+      console.error(text);
+
+      throw err;
     }
   }
 }

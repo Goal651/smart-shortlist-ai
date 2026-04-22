@@ -35,6 +35,42 @@ export const useJobs = () => {
   };
 };
 
+// Hook for public job listings (no auth required)
+export const usePublicJobs = () => {
+  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fetchPublicJobs = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await jobService.getPublicJobs();
+      if (res.success && res.data) {
+        setJobs(res.data);
+      } else {
+        throw new Error(res.message || 'Failed to fetch jobs');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchPublicJobs();
+  }, [fetchPublicJobs]);
+
+  return {
+    jobs,
+    loading,
+    error,
+    fetchJobs: fetchPublicJobs,
+  };
+};
+
 // Hook for candidate screening operations
 export const useScreening = (jobId?: string) => {
   const { state, actions } = useAppContext();

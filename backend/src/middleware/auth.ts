@@ -36,8 +36,8 @@ export const requireOwner = (req: AuthRequest, res: Response, next: NextFunction
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.user.role !== 'owner') {
-    return res.status(403).json({ error: 'Owner access required' });
+  if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Owner or Admin access required' });
   }
 
   next();
