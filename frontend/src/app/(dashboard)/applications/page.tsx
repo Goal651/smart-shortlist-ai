@@ -16,7 +16,8 @@ import { apiClient } from "@/services/client";
 
 interface Application {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   linkedin?: string;
@@ -104,7 +105,8 @@ export default function ApplicationsPage() {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (
-      a.name.toLowerCase().includes(q) ||
+      a.firstName.toLowerCase().includes(q) ||
+      a.lastName.toLowerCase().includes(q) ||
       a.email.toLowerCase().includes(q) ||
       a.jobId?.title?.toLowerCase().includes(q)
     );
@@ -170,7 +172,7 @@ export default function ApplicationsPage() {
               <div key={app._id} className="p-5 flex items-start justify-between gap-4 hover:bg-gray-50/40 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <p className="text-sm font-semibold text-gray-900">{app.name}</p>
+                    <p className="text-sm font-semibold text-gray-900">{app.firstName} {app.lastName}</p>
                     <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium", statusColors[app.status])}>
                       <StatusIcon status={app.status} />{app.status}
                     </span>
@@ -226,7 +228,7 @@ export default function ApplicationsPage() {
           <Card className="max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-lg font-semibold text-gray-900">{selectedApp.name}</p>
+                <p className="text-lg font-semibold text-gray-900">{selectedApp.firstName} {selectedApp.lastName}</p>
                 <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium mt-1", statusColors[selectedApp.status])}>
                   <StatusIcon status={selectedApp.status} />{selectedApp.status}
                 </span>

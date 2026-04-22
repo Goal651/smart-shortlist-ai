@@ -29,7 +29,8 @@ interface Job {
 
 interface Application {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   linkedin?: string;
@@ -461,7 +462,9 @@ export default function JobDetailPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <p className="text-lg font-bold text-gray-900">{app.name}</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {app.firstName} {app.lastName}
+                      </p>
                       <span
                         className={cn(
                           "text-xs px-3 py-1 rounded-full border font-bold uppercase tracking-tight",
@@ -613,7 +616,9 @@ export default function JobDetailPage() {
           >
             <div className="flex items-start justify-between border-b pb-4">
               <div>
-                <Typography variant="h2" className="text-2xl font-bold text-gray-900">{selectedApp.name}</Typography>
+                <Typography variant="h2" className="text-2xl font-bold text-gray-900">
+                  {selectedApp.firstName} {selectedApp.lastName}
+                </Typography>
                 <div className="flex gap-2 mt-2">
                   <span
                     className={cn(

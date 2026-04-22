@@ -43,7 +43,8 @@ export default function JobDetailPage() {
   
   // Form state
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     linkedin: '',
@@ -77,8 +78,12 @@ export default function JobDetailPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
     }
 
     if (!formData.email.trim()) {
@@ -108,8 +113,10 @@ export default function JobDetailPage() {
 
     try {
       const formDataToSend = new FormData();
+
       formDataToSend.append('jobId', jobId);
-      formDataToSend.append('name', formData.name);
+      formDataToSend.append('firstName', formData.firstName);
+      formDataToSend.append('lastName', formData.lastName);
       formDataToSend.append('email', formData.email);
       formDataToSend.append('phone', formData.phone);
       formDataToSend.append('linkedin', formData.linkedin);
@@ -123,7 +130,8 @@ export default function JobDetailPage() {
         setShowSuccess(true);
         // Reset form
         setFormData({
-          name: '',
+          firstName: '',
+          lastName: '',
           email: '',
           phone: '',
           linkedin: '',
@@ -300,13 +308,22 @@ export default function JobDetailPage() {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Apply for this Position</h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  label="Full Name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  error={errors.name}
-                  required
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="First Name"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    error={errors.firstName}
+                    required
+                  />
+                  <Input
+                    label="Last Name"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    error={errors.lastName}
+                    required
+                  />
+                </div>
 
                 <Input
                   label="Email Address"

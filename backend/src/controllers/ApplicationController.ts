@@ -100,8 +100,8 @@ export class ApplicationController {
             mimetype: file.mimetype, 
             size: file.size 
           });
-        } catch (err) {
-          console.warn('⚠️ Skipping corrupt file:', file.originalname);
+        } catch (err: any) {
+          console.error(`❌ Failed to extract text from ${file.originalname}:`, err.message);
         }
       }
 
@@ -129,78 +129,106 @@ export class ApplicationController {
         const batch = resumeData.slice(i, i + BATCH_SIZE);
         const batchTexts = batch.map(r => r.text);
         
-        console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batch.length} resumes`);
+        console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(resumeData.length / BATCH_SIZE)} (${batch.length} resumes)`);
         
         try {
           const screeningResults = await GeminiService.screenResumes(job.description, batchTexts);
-          console.log('✅ Gemini returned', screeningResults.length, 'results');
+          console.log(`✅ Batch complete: received ${screeningResults.length} results for ${batch.length} resumes`);
           
-          for (let j = 0; j < screeningResults.length; j++) {
+          for (let j = 0; j < batch.length; j++) {
             const resData = screeningResults[j];
             const originalFile = batch[j];
 
-            console.log('💾 Saving candidate:', resData.name, '(score:', resData.score, ')');
+            if (!resData) {
+              console.warn(`⚠️ No result for candidate ${j+1} in batch. Skipping.`);
+              continue;
+            }
 
-            // Parse name
-            const nameParts = (resData.name || 'Unknown Candidate').trim().split(' ');
-            const firstName = nameParts[0] || 'Unknown';
-            const lastName = nameParts.slice(1).join(' ') || 'Candidate';
+            console.log('💾 Saving candidate:', resData.firstName, resData.lastName, '(score:', resData.aiAnalysis.score, ')');
 
-            // Create Candidate with required fields
+            // Create Candidate with detailed fields and robust defaults
             const candidate = new Candidate({
               jobId: job._id,
-              firstName,
-              lastName,
-              email: resData.email || 'unknown@example.com',
-              headline: job.title,
-              location: 'Unknown',
-              skills: (resData.top_skills || []).map(skill => ({
-                name: skill,
-                level: 'Intermediate' as const,
-                yearsOfExperience: 2
+              firstName: resData.firstName || 'Unknown',
+              lastName: resData.lastName || 'Candidate',
+              email: resData.email?.toLowerCase().trim() || `unknown-${Date.now()}@example.com`,
+              headline: resData.headline || job.title || 'Professional',
+              bio: resData.bio || '',
+              location: resData.location || 'Remote',
+              skills: (resData.skills || []).map((s: any) => ({
+                name: s.name || 'Unknown',
+                level: ['Beginner', 'Intermediate', 'Advanced', 'Expert'].includes(s.level) ? s.level : 'Intermediate',
+                yearsOfExperience: Number(s.yearsOfExperience) || 0
               })),
-              languages: [{ name: 'English', proficiency: 'Fluent' as const }],
-              experience: [],
-              education: [],
-              certifications: [],
-              projects: [],
+              languages: (resData.languages || []).map((l: any) => ({
+                name: l.name || 'Unknown',
+                proficiency: ['Basic', 'Conversational', 'Fluent', 'Native'].includes(l.proficiency) ? l.proficiency : 'Conversational'
+              })),
+              experience: (resData.experience || []).map((e: any) => ({
+                company: e.company || 'Unknown',
+                role: e.role || 'Professional',
+                startDate: e.startDate || 'Unknown',
+                endDate: e.endDate || 'Present',
+                description: e.description || '',
+                technologies: e.technologies || [],
+                isCurrent: !!e.isCurrent
+              })),
+              education: (resData.education || []).map((edu: any) => ({
+                institution: edu.institution || 'Unknown',
+                degree: edu.degree || 'Degree',
+                fieldOfStudy: edu.fieldOfStudy || 'General',
+                startYear: Number(edu.startYear) || 2000,
+                endYear: Number(edu.endYear) || 2024
+              })),
               availability: {
-                status: 'Available' as const,
-                type: 'Full-time' as const
+                status: ['Available', 'Open to Opportunities', 'Not Available'].includes(resData.availability?.status) 
+                  ? resData.availability.status 
+                  : 'Available',
+                type: ['Full-time', 'Part-time', 'Contract'].includes(resData.availability?.type) 
+                  ? resData.availability.type 
+                  : 'Full-time'
               },
-              socialLinks: {
-                linkedin: resData.linkedin
-              },
+              socialLinks: resData.socialLinks || {},
               aiAnalysis: {
-                score: resData.score || 0,
-                summary: resData.summary || '',
-                topSkills: resData.top_skills || [],
-                gaps: resData.gaps || [],
-                reasoning: resData.summary || '',
-                recommendations: []
+                score: Number(resData.aiAnalysis?.score) || 0,
+                summary: resData.aiAnalysis?.summary || 'No summary',
+                topSkills: resData.aiAnalysis?.topSkills || [],
+                gaps: resData.aiAnalysis?.gaps || [],
+                reasoning: resData.aiAnalysis?.reasoning || '',
+                recommendations: resData.aiAnalysis?.recommendations || []
               },
-              status: resData.status === 'Shortlisted' ? 'Shortlisted' : 
-                      resData.status === 'Review' ? 'Screening' : 'Rejected',
+              status: ['Applied', 'Screening', 'Shortlisted', 'Rejected'].includes(resData.status) 
+                ? resData.status 
+                : 'Screening',
               extractedText: originalFile.text,
               screenedAt: new Date()
             });
 
-            await candidate.save();
-            totalCandidates.push(candidate);
-
-            // Add to analysis results
-            candidateScores.push({
-              candidateId: candidate._id,
-              email: candidate.email,
-              name: `${candidate.firstName} ${candidate.lastName}`,
-              score: resData.score,
-              summary: resData.summary,
-              topSkills: resData.top_skills,
-              gaps: resData.gaps
-            });
+            try {
+              await candidate.save();
+              totalCandidates.push(candidate);
+              
+              candidateScores.push({
+                candidateId: candidate._id as any,
+                email: candidate.email,
+                name: `${candidate.firstName} ${candidate.lastName}`,
+                score: candidate.aiAnalysis?.score || 0,
+                summary: candidate.aiAnalysis?.summary || 'No summary available',
+                topSkills: candidate.aiAnalysis?.topSkills || [],
+                gaps: candidate.aiAnalysis?.gaps || []
+              });
+            } catch (saveErr: any) {
+              console.error(`❌ Failed to save candidate ${resData.firstName} ${resData.lastName}:`, saveErr.message);
+              if (saveErr.errors) {
+                Object.keys(saveErr.errors).forEach(key => {
+                  console.error(`   - Validation error for ${key}: ${saveErr.errors[key].message}`);
+                });
+              }
+            }
           }
-        } catch (error) {
-          console.error('❌ Batch screening failed:', error);
+        } catch (error: any) {
+          console.error(`❌ Batch screening failed for batch starting at ${i}:`, error.message);
+          if (error.stack) console.error(error.stack);
         }
       }
 
@@ -284,46 +312,94 @@ export class ApplicationController {
       const result = screeningResults[0];
 
       // Create candidate profile
+      // Create candidate profile with robust defaults
       const candidate = new Candidate({
         jobId: job._id,
         applicationId: application._id,
-        firstName: result.firstName || application.firstName,
-        lastName: result.lastName || application.lastName,
-        email: result.email || application.email,
-        headline: result.headline || job.title,
-        bio: result.bio,
-        location: result.location || 'Unknown',
-        skills: result.skills,
-        languages: result.languages,
-        experience: result.experience,
-        education: result.education,
-        availability: result.availability,
-        socialLinks: result.socialLinks,
-        aiAnalysis: result.aiAnalysis,
-        status: result.status,
+        firstName: result.firstName || application.firstName || 'Unknown',
+        lastName: result.lastName || application.lastName || 'Candidate',
+        email: result.email?.toLowerCase().trim() || application.email?.toLowerCase().trim() || `unknown-${Date.now()}@example.com`,
+        headline: result.headline || job.title || 'Professional',
+        bio: result.bio || '',
+        location: result.location || 'Remote',
+        skills: (result.skills || []).map((s: any) => ({
+          name: s.name || 'Unknown',
+          level: ['Beginner', 'Intermediate', 'Advanced', 'Expert'].includes(s.level) ? s.level : 'Intermediate',
+          yearsOfExperience: Number(s.yearsOfExperience) || 0
+        })),
+        languages: (result.languages || []).map((l: any) => ({
+          name: l.name || 'Unknown',
+          proficiency: ['Basic', 'Conversational', 'Fluent', 'Native'].includes(l.proficiency) ? l.proficiency : 'Conversational'
+        })),
+        experience: (result.experience || []).map((e: any) => ({
+          company: e.company || 'Unknown',
+          role: e.role || 'Professional',
+          startDate: e.startDate || 'Unknown',
+          endDate: e.endDate || 'Present',
+          description: e.description || '',
+          technologies: e.technologies || [],
+          isCurrent: !!e.isCurrent
+        })),
+        education: (result.education || []).map((edu: any) => ({
+          institution: edu.institution || 'Unknown',
+          degree: edu.degree || 'Degree',
+          fieldOfStudy: edu.fieldOfStudy || 'General',
+          startYear: Number(edu.startYear) || 2000,
+          endYear: Number(edu.endYear) || 2024
+        })),
+        availability: {
+          status: ['Available', 'Open to Opportunities', 'Not Available'].includes(result.availability?.status) 
+            ? result.availability.status 
+            : 'Available',
+          type: ['Full-time', 'Part-time', 'Contract'].includes(result.availability?.type) 
+            ? result.availability.type 
+            : 'Full-time'
+        },
+        socialLinks: result.socialLinks || {},
+        aiAnalysis: {
+          score: Number(result.aiAnalysis?.score) || 0,
+          summary: result.aiAnalysis?.summary || 'No summary',
+          topSkills: result.aiAnalysis?.topSkills || [],
+          gaps: result.aiAnalysis?.gaps || [],
+          reasoning: result.aiAnalysis?.reasoning || '',
+          recommendations: result.aiAnalysis?.recommendations || []
+        },
+        status: ['Applied', 'Screening', 'Shortlisted', 'Rejected'].includes(result.status) 
+          ? result.status 
+          : 'Screening',
         extractedText: application.extractedText,
         screenedAt: new Date()
       });
 
-      await candidate.save();
+      try {
+        await candidate.save();
 
-      // Update application
-      application.candidateId = candidate._id;
-      application.screeningResult = {
-        score: result.aiAnalysis.score,
-        summary: result.aiAnalysis.summary,
-        topSkills: result.aiAnalysis.topSkills,
-        gaps: result.aiAnalysis.gaps,
-        reasoning: result.aiAnalysis.reasoning
-      };
-      application.status = result.status as any;
-      application.screenedAt = new Date();
-      await application.save();
+        // Update application
+        application.candidateId = candidate._id;
+        application.screeningResult = {
+          score: candidate.aiAnalysis?.score || 0,
+          summary: candidate.aiAnalysis?.summary || 'No summary available',
+          topSkills: candidate.aiAnalysis?.topSkills || [],
+          gaps: candidate.aiAnalysis?.gaps || [],
+          reasoning: candidate.aiAnalysis?.reasoning || ''
+        };
+        application.status = candidate.status as any;
+        application.screenedAt = new Date();
+        await application.save();
 
-      res.json({
-        message: "Application screened successfully",
-        candidate
-      });
+        res.json({
+          message: "Application screened successfully",
+          candidate
+        });
+      } catch (saveErr: any) {
+        console.error(`❌ Failed to save candidate from application ${application.email}:`, saveErr.message);
+        if (saveErr.errors) {
+          Object.keys(saveErr.errors).forEach(key => {
+            console.error(`   - Validation error for ${key}: ${saveErr.errors[key].message}`);
+          });
+        }
+        res.status(500).json({ error: "Failed to save candidate profile", details: saveErr.message });
+      }
 
     } catch (error) {
       console.error('Error screening application:', error);
@@ -353,62 +429,114 @@ export class ApplicationController {
       }
 
       const screenedCandidates = [];
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 3;
 
       for (let i = 0; i < applications.length; i += BATCH_SIZE) {
         const batch = applications.slice(i, i + BATCH_SIZE);
         const batchTexts = batch.map(a => a.extractedText);
         
-        console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batch.length} applications`);
+        console.log(`🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(applications.length / BATCH_SIZE)} (${batch.length} applications)`);
         
         try {
           const screeningResults = await GeminiService.screenResumes(job.description, batchTexts);
+          console.log(`✅ Batch complete: received ${screeningResults.length} results for ${batch.length} applications`);
           
-          for (let j = 0; j < screeningResults.length; j++) {
+          for (let j = 0; j < batch.length; j++) {
             const result = screeningResults[j];
             const app = batch[j];
 
-            // Create candidate profile
+            if (!result) {
+              console.warn(`⚠️ No result for application ${j+1} in batch. Skipping.`);
+              continue;
+            }
+
+            // Create candidate profile with robust defaults
             const candidate = new Candidate({
               jobId: job._id,
               applicationId: app._id,
-              firstName: result.firstName || app.firstName,
-              lastName: result.lastName || app.lastName,
-              email: result.email || app.email,
-              headline: result.headline || job.title,
-              bio: result.bio,
-              location: result.location || 'Unknown',
-              skills: result.skills,
-              languages: result.languages,
-              experience: result.experience,
-              education: result.education,
-              availability: result.availability,
-              socialLinks: result.socialLinks,
-              aiAnalysis: result.aiAnalysis,
-              status: result.status,
+              firstName: result.firstName || app.firstName || 'Unknown',
+              lastName: result.lastName || app.lastName || 'Candidate',
+              email: result.email?.toLowerCase().trim() || app.email?.toLowerCase().trim() || `unknown-${Date.now()}@example.com`,
+              headline: result.headline || job.title || 'Professional',
+              bio: result.bio || '',
+              location: result.location || 'Remote',
+              skills: (result.skills || []).map((s: any) => ({
+                name: s.name || 'Unknown',
+                level: ['Beginner', 'Intermediate', 'Advanced', 'Expert'].includes(s.level) ? s.level : 'Intermediate',
+                yearsOfExperience: Number(s.yearsOfExperience) || 0
+              })),
+              languages: (result.languages || []).map((l: any) => ({
+                name: l.name || 'Unknown',
+                proficiency: ['Basic', 'Conversational', 'Fluent', 'Native'].includes(l.proficiency) ? l.proficiency : 'Conversational'
+              })),
+              experience: (result.experience || []).map((e: any) => ({
+                company: e.company || 'Unknown',
+                role: e.role || 'Professional',
+                startDate: e.startDate || 'Unknown',
+                endDate: e.endDate || 'Present',
+                description: e.description || '',
+                technologies: e.technologies || [],
+                isCurrent: !!e.isCurrent
+              })),
+              education: (result.education || []).map((edu: any) => ({
+                institution: edu.institution || 'Unknown',
+                degree: edu.degree || 'Degree',
+                fieldOfStudy: edu.fieldOfStudy || 'General',
+                startYear: Number(edu.startYear) || 2000,
+                endYear: Number(edu.endYear) || 2024
+              })),
+              availability: {
+                status: ['Available', 'Open to Opportunities', 'Not Available'].includes(result.availability?.status) 
+                  ? result.availability.status 
+                  : 'Available',
+                type: ['Full-time', 'Part-time', 'Contract'].includes(result.availability?.type) 
+                  ? result.availability.type 
+                  : 'Full-time'
+              },
+              socialLinks: result.socialLinks || {},
+              aiAnalysis: {
+                score: Number(result.aiAnalysis?.score) || 0,
+                summary: result.aiAnalysis?.summary || 'No summary',
+                topSkills: result.aiAnalysis?.topSkills || [],
+                gaps: result.aiAnalysis?.gaps || [],
+                reasoning: result.aiAnalysis?.reasoning || '',
+                recommendations: result.aiAnalysis?.recommendations || []
+              },
+              status: ['Applied', 'Screening', 'Shortlisted', 'Rejected'].includes(result.status) 
+                ? result.status 
+                : 'Screening',
               extractedText: app.extractedText,
               screenedAt: new Date()
             });
 
-            await candidate.save();
+            try {
+              await candidate.save();
 
-            // Update application
-            app.candidateId = candidate._id;
-            app.screeningResult = {
-              score: result.aiAnalysis.score,
-              summary: result.aiAnalysis.summary,
-              topSkills: result.aiAnalysis.topSkills,
-              gaps: result.aiAnalysis.gaps,
-              reasoning: result.aiAnalysis.reasoning
-            };
-            app.status = result.status as any;
-            app.screenedAt = new Date();
-            await app.save();
-            
-            screenedCandidates.push(candidate);
+              // Update application
+              app.candidateId = candidate._id;
+              app.screeningResult = {
+                score: candidate.aiAnalysis?.score || 0,
+                summary: candidate.aiAnalysis?.summary || 'No summary available',
+                topSkills: candidate.aiAnalysis?.topSkills || [],
+                gaps: candidate.aiAnalysis?.gaps || [],
+                reasoning: candidate.aiAnalysis?.reasoning || ''
+              };
+              app.status = candidate.status as any;
+              app.screenedAt = new Date();
+              await app.save();
+              
+              screenedCandidates.push(candidate);
+            } catch (saveErr: any) {
+              console.error(`❌ Failed to save candidate from existing application ${app.email}:`, saveErr.message);
+              if (saveErr.errors) {
+                Object.keys(saveErr.errors).forEach(key => {
+                  console.error(`   - Validation error for ${key}: ${saveErr.errors[key].message}`);
+                });
+              }
+            }
           }
-        } catch (error) {
-          console.error(`❌ Batch screening failed for job ${jobId}:`, error);
+        } catch (error: any) {
+          console.error(`❌ Batch screening failed for job ${jobId}:`, error.message);
         }
       }
 
@@ -422,12 +550,12 @@ export class ApplicationController {
         fileCount: applications.length,
         candidateCount: screenedCandidates.length,
         screened: true,
-        topScore: screenedCandidates.reduce((max, c) => Math.max(max, c.aiAnalysis?.score || 0), 0),
+        topScore: screenedCandidates.length > 0 ? screenedCandidates.reduce((max, c) => Math.max(max, c.aiAnalysis?.score || 0), 0) : 0,
         averageScore: screenedCandidates.length > 0 
           ? screenedCandidates.reduce((sum, c) => sum + (c.aiAnalysis?.score || 0), 0) / screenedCandidates.length 
           : 0,
         results: screenedCandidates.map(c => ({
-          candidateId: c._id,
+          candidateId: c._id as any,
           email: c.email,
           name: `${c.firstName} ${c.lastName}`,
           score: c.aiAnalysis?.score || 0,
