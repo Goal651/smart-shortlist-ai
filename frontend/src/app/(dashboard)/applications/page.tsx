@@ -1,520 +1,289 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  Briefcase, User, Mail, Phone, Calendar, Filter, 
-  Search, Eye, PlayCircle, CheckCircle, Clock, XCircle,
-  Download, ChevronDown, ChevronUp
+import {
+  Briefcase, Mail, Phone, Calendar, Search,
+  Eye, PlayCircle, CheckCircle, Clock, XCircle
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Pagination } from "@/components/ui/Pagination";
 import { Typography } from "@/components/ui/Typography";
+import { cn } from "@/lib/utils";
+import { apiClient } from "@/services/client";
 
 interface Application {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone?: string;
   linkedin?: string;
-  status: 'Applied' | 'Screening' | 'Shortlisted' | 'Rejected';
+  status: "Applied" | "Screening" | "Shortlisted" | "Rejected";
   submittedAt: string;
-  jobId: {
-    _id: string;
-    title: string;
-    location: string;
-    type: string;
-  };
+  jobId: { _id: string; title: string; location: string; type: string };
   score?: number;
   summary?: string;
   topSkills?: string[];
   gaps?: string[];
   screenedAt?: string;
-  emailSent?: boolean;
 }
 
-interface ApplicationsResponse {
-  applications: Application[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
+const statusColors: Record<string, string> = {
+  Applied: "bg-blue-50 text-blue-700 border-blue-100",
+  Screening: "bg-yellow-50 text-yellow-700 border-yellow-100",
+  Shortlisted: "bg-green-50 text-green-700 border-green-100",
+  Rejected: "bg-red-50 text-red-700 border-red-100",
+};
+
+const StatusIcon = ({ status }: { status: string }) => {
+  if (status === "Shortlisted") return <CheckCircle className="h-3.5 w-3.5" />;
+  if (status === "Rejected") return <XCircle className="h-3.5 w-3.5" />;
+  if (status === "Screening") return <PlayCircle className="h-3.5 w-3.5" />;
+  return <Clock className="h-3.5 w-3.5" />;
+};
 
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [screeningLoading, setScreeningLoading] = useState<string | null>(null);
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Filters
+  const [screeningId, setScreeningId] = useState<string | null>(null);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [jobFilter, setJobFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    total: 0,
-    pages: 0
-  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const PAGE_SIZE = 15;
+
+  const getToken = () => localStorage.getItem("auth_token");
 
   useEffect(() => {
     fetchApplications();
-  }, [currentPage, statusFilter, jobFilter]);
+  }, [currentPage, statusFilter]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
+      const params = {
+        page: currentPage,
+        limit: PAGE_SIZE,
         ...(statusFilter && { status: statusFilter }),
-        ...(jobFilter && { jobId: jobFilter })
-      });
-
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/applications?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data: ApplicationsResponse = await response.json();
-        setApplications(data.applications);
-        setPagination(data.pagination);
+      };
+      const res = await apiClient.get<{ applications: Application[]; pagination: { total: number; pages: number } }>(`/applications`, params);
+      if (res.success && res.data) {
+        setApplications(res.data.applications || []);
+        setTotal(res.data.pagination?.total || 0);
+        setTotalPages(res.data.pagination?.pages || 1);
       }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleScreenApplication = async (applicationId: string) => {
+  const handleScreen = async (appId: string) => {
+    setScreeningId(appId);
     try {
-      setScreeningLoading(applicationId);
-      
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/applications/${applicationId}/screen`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        // Refresh applications to get updated data
-        await fetchApplications();
-        
-        // Show success message
-        alert(`Application screened successfully! Score: ${result.screening.score}`);
-      } else {
-        const error = await response.json();
-        alert(`Screening failed: ${error.error}`);
-      }
-    } catch (error) {
-      console.error('Error screening application:', error);
-      alert('Screening failed. Please try again.');
+      const res = await apiClient.post(`/applications/${appId}/screen`);
+      if (res.success) await fetchApplications();
     } finally {
-      setScreeningLoading(null);
+      setScreeningId(null);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Applied':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Screening':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      case 'Shortlisted':
-        return 'bg-green-50 text-green-700 border-green-200';
-      case 'Rejected':
-        return 'bg-red-50 text-red-700 border-red-200';
-      default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Applied':
-        return <Clock className="h-4 w-4" />;
-      case 'Screening':
-        return <PlayCircle className="h-4 w-4" />;
-      case 'Shortlisted':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'Rejected':
-        return <XCircle className="h-4 w-4" />;
-      default:
-        return <Clock className="h-4 w-4" />;
-    }
-  };
-
-  const filteredApplications = applications.filter(app => {
-    const matchesSearch = !searchTerm || 
-      app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.jobId.title.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
+  const filtered = applications.filter((a) => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (
+      a.firstName.toLowerCase().includes(q) ||
+      a.lastName.toLowerCase().includes(q) ||
+      a.email.toLowerCase().includes(q) ||
+      a.jobId?.title?.toLowerCase().includes(q)
+    );
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
-          <p className="text-gray-600">Manage and screen job applications</p>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-600">
-            {pagination.total} total applications
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-50">
+        <div className="space-y-1">
+          <Typography variant="h1" className="text-2xl font-medium tracking-tight text-gray-900">Applications</Typography>
+          <Typography variant="caption" className="text-gray-600 font-medium font-work-sans">
+            {total} total application{total !== 1 ? "s" : ""}
+          </Typography>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search applications..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* Filters */}
+      <Card className="p-4 border-gray-100 shadow-none">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by name, email or job title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-10 pl-9 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <select
+          <div className="w-full sm:w-48">
+            <Select
+              options={[
+                { label: "All Status", value: "" },
+                { label: "Applied", value: "Applied" },
+                { label: "Screening", value: "Screening" },
+                { label: "Shortlisted", value: "Shortlisted" },
+                { label: "Rejected", value: "Rejected" },
+              ]}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Status</option>
-              <option value="Applied">Applied</option>
-              <option value="Screening">Screening</option>
-              <option value="Shortlisted">Shortlisted</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-            
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {showFilters ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
-            </Button>
+              onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
+              placeholder="All Status"
+            />
           </div>
         </div>
-        
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                placeholder="Filter by job..."
-                value={jobFilter}
-                onChange={(e) => setJobFilter(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
       </Card>
 
-      {/* Applications List */}
-      <div className="space-y-4">
-        {filteredApplications.length === 0 ? (
-          <Card className="p-8 text-center">
-            <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
-            <p className="text-gray-600">
-              {searchTerm || statusFilter || jobFilter 
-                ? 'Try adjusting your filters' 
-                : 'No applications have been submitted yet'
-              }
-            </p>
-          </Card>
-        ) : (
-          filteredApplications.map((application) => (
-            <Card key={application._id} className="p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{application.name}</h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(application.status)}`}>
-                      {getStatusIcon(application.status)}
-                      <span className="ml-1">{application.status}</span>
+      {/* List */}
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="p-12 text-center border-gray-100 shadow-none">
+          <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-base font-medium text-gray-900 mb-1">No applications found</p>
+          <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
+        </Card>
+      ) : (
+        <Card className="border-gray-100 shadow-none overflow-hidden">
+          <div className="divide-y divide-gray-50">
+            {filtered.map((app) => (
+              <div key={app._id} className="p-5 flex items-start justify-between gap-4 hover:bg-gray-50/40 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-900">{app.firstName} {app.lastName}</p>
+                    <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium", statusColors[app.status])}>
+                      <StatusIcon status={app.status} />{app.status}
                     </span>
-                    {application.score && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border-purple-200">
-                        Score: {application.score}
-                      </span>
+                    {app.score != null && (
+                      <span className={cn("text-xs px-2.5 py-0.5 rounded-full border font-medium",
+                        app.score >= 80 ? "bg-green-50 text-green-700 border-green-100" :
+                        app.score >= 60 ? "bg-orange-50 text-orange-700 border-orange-100" :
+                        "bg-red-50 text-red-700 border-red-100"
+                      )}>Score: {app.score}</span>
                     )}
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="h-4 w-4 mr-1" />
-                      {application.email}
-                    </div>
-                    {application.phone && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Phone className="h-4 w-4 mr-1" />
-                        {application.phone}
-                      </div>
-                    )}
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Briefcase className="h-4 w-4 mr-1" />
-                      {application.jobId.title}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      Applied {formatDate(application.submittedAt)}
-                    </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-2">
+                    <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{app.email}</span>
+                    {app.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{app.phone}</span>}
+                    <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{app.jobId?.title}</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{fmt(app.submittedAt)}</span>
                   </div>
-
-                  {application.topSkills && application.topSkills.length > 0 && (
-                    <div className="mb-3">
-                      <div className="text-sm text-gray-600 mb-1">Top Skills:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {application.topSkills.slice(0, 4).map((skill, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                        {application.topSkills.length > 4 && (
-                          <span className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded-full">
-                            +{application.topSkills.length - 4} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {application.summary && (
-                    <div className="text-sm text-gray-600 mb-3">
-                      <strong>Summary:</strong> {application.summary}
+                  {app.topSkills && app.topSkills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {app.topSkills.slice(0, 4).map((s, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full">{s}</span>
+                      ))}
+                      {app.topSkills.length > 4 && <span className="px-2 py-0.5 bg-gray-50 text-gray-500 text-xs rounded-full">+{app.topSkills.length - 4}</span>}
                     </div>
                   )}
                 </div>
-                
-                <div className="flex flex-col space-y-2 ml-4">
-                  {application.status === 'Applied' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleScreenApplication(application._id)}
-                      disabled={screeningLoading === application._id}
-                      className="flex items-center"
-                    >
-                      {screeningLoading === application._id ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Screening...
-                        </>
+                <div className="flex flex-col gap-2 shrink-0">
+                  {app.status === "Applied" && (
+                    <Button size="sm" onClick={() => handleScreen(app._id)} disabled={screeningId === app._id} className="h-8 text-xs">
+                      {screeningId === app._id ? (
+                        <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />Screening...</>
                       ) : (
-                        <>
-                          <PlayCircle className="h-4 w-4 mr-2" />
-                          Screen
-                        </>
+                        <><PlayCircle className="h-3.5 w-3.5 mr-1" />Screen</>
                       )}
                     </Button>
                   )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedApplication(application)}
-                    className="flex items-center"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
+                  <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="h-8 text-xs">
+                    <Eye className="h-3.5 w-3.5 mr-1" />View
                   </Button>
                 </div>
               </div>
-            </Card>
-          ))
-        )}
-      </div>
-
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex justify-center items-center space-x-2">
-          <Button
-            variant="outline"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Previous
-          </Button>
-          
-          <span className="text-sm text-gray-600">
-            Page {currentPage} of {pagination.pages}
-          </span>
-          
-          <Button
-            variant="outline"
-            disabled={currentPage === pagination.pages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </Button>
-        </div>
+            ))}
+          </div>
+          <div className="border-t border-gray-50 bg-gray-50/30">
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} className="border-0 shadow-none" />
+          </div>
+        </Card>
       )}
 
-      {/* Application Details Modal */}
-      {selectedApplication && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Application Details</h2>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedApplication(null)}
-                >
-                  ×
-                </Button>
+      {/* Detail modal */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedApp(null)}>
+          <Card className="max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-lg font-semibold text-gray-900">{selectedApp.firstName} {selectedApp.lastName}</p>
+                <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium mt-1", statusColors[selectedApp.status])}>
+                  <StatusIcon status={selectedApp.status} />{selectedApp.status}
+                </span>
               </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Applicant Information</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <strong>Name:</strong> {selectedApplication.name}
-                    </div>
-                    <div>
-                      <strong>Email:</strong> {selectedApplication.email}
-                    </div>
-                    {selectedApplication.phone && (
-                      <div>
-                        <strong>Phone:</strong> {selectedApplication.phone}
-                      </div>
-                    )}
-                    {selectedApplication.linkedin && (
-                      <div>
-                        <strong>LinkedIn:</strong> 
-                        <a href={selectedApplication.linkedin} target="_blank" className="text-blue-600 hover:underline ml-1">
-                          View Profile
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Job Information</h3>
-                  <div className="text-sm">
-                    <div><strong>Position:</strong> {selectedApplication.jobId.title}</div>
-                    <div><strong>Location:</strong> {selectedApplication.jobId.location}</div>
-                    <div><strong>Type:</strong> {selectedApplication.jobId.type}</div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Application Status</h3>
-                  <div className="text-sm">
-                    <div><strong>Status:</strong> {selectedApplication.status}</div>
-                    <div><strong>Applied:</strong> {formatDate(selectedApplication.submittedAt)}</div>
-                    {selectedApplication.screenedAt && (
-                      <div><strong>Screened:</strong> {formatDate(selectedApplication.screenedAt)}</div>
-                    )}
-                    {selectedApplication.score && (
-                      <div><strong>Score:</strong> {selectedApplication.score}/100</div>
-                    )}
-                  </div>
-                </div>
-                
-                {selectedApplication.summary && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">AI Summary</h3>
-                    <p className="text-sm text-gray-600">{selectedApplication.summary}</p>
-                  </div>
-                )}
-                
-                {selectedApplication.topSkills && selectedApplication.topSkills.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Top Skills</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedApplication.topSkills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {selectedApplication.gaps && selectedApplication.gaps.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-2">Skill Gaps</h3>
-                    <ul className="text-sm text-gray-600 list-disc list-inside">
-                      {selectedApplication.gaps.map((gap, index) => (
-                        <li key={index}>{gap}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedApplication(null)}
-                >
-                  Close
-                </Button>
-                {selectedApplication.status === 'Applied' && (
-                  <Button
-                    onClick={() => {
-                      handleScreenApplication(selectedApplication._id);
-                      setSelectedApplication(null);
-                    }}
-                    disabled={screeningLoading === selectedApplication._id}
-                  >
-                    {screeningLoading === selectedApplication._id ? 'Screening...' : 'Screen Application'}
-                  </Button>
-                )}
-              </div>
+              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1">×</button>
             </div>
-          </div>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><p className="text-xs text-gray-500 mb-0.5">Email</p><p className="font-medium text-gray-900 truncate">{selectedApp.email}</p></div>
+              {selectedApp.phone && <div><p className="text-xs text-gray-500 mb-0.5">Phone</p><p className="font-medium text-gray-900">{selectedApp.phone}</p></div>}
+              <div><p className="text-xs text-gray-500 mb-0.5">Position</p><p className="font-medium text-gray-900">{selectedApp.jobId?.title}</p></div>
+              <div><p className="text-xs text-gray-500 mb-0.5">Applied</p><p className="font-medium text-gray-900">{fmt(selectedApp.submittedAt)}</p></div>
+              {selectedApp.score != null && <div><p className="text-xs text-gray-500 mb-0.5">Score</p><p className="font-semibold text-gray-900">{selectedApp.score}/100</p></div>}
+              {selectedApp.screenedAt && <div><p className="text-xs text-gray-500 mb-0.5">Screened</p><p className="font-medium text-gray-900">{fmt(selectedApp.screenedAt)}</p></div>}
+              {selectedApp.linkedin && (
+                <div className="col-span-2"><p className="text-xs text-gray-500 mb-0.5">LinkedIn</p>
+                  <a href={selectedApp.linkedin} target="_blank" className="text-primary text-sm hover:underline truncate block">{selectedApp.linkedin}</a>
+                </div>
+              )}
+            </div>
+
+            {selectedApp.summary && (
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-xs font-semibold text-gray-700 mb-1">AI Summary</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{selectedApp.summary}</p>
+              </div>
+            )}
+
+            {selectedApp.topSkills && selectedApp.topSkills.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Top Skills</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedApp.topSkills.map((s, i) => <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">{s}</span>)}
+                </div>
+              </div>
+            )}
+
+            {selectedApp.gaps && selectedApp.gaps.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Skill Gaps</p>
+                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                  {selectedApp.gaps.map((g, i) => <li key={i}>{g}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-50">
+              <Button variant="outline" onClick={() => setSelectedApp(null)}>Close</Button>
+              {selectedApp.status === "Applied" && (
+                <Button onClick={() => { handleScreen(selectedApp._id); setSelectedApp(null); }} disabled={screeningId === selectedApp._id}>
+                  Screen Application
+                </Button>
+              )}
+            </div>
+          </Card>
         </div>
       )}
     </div>

@@ -45,7 +45,7 @@ export class ProcessingService {
    * Extracts text from PDF Buffer
    */
   private static async extractFromPDF(buffer: Buffer): Promise<string> {
-    const pdf = new PDFParse(new Uint8Array(buffer));
+    const pdf = new PDFParse({ data: new Uint8Array(buffer) });
     const result = await pdf.getText();
     return result.text.replace(/\s+/g, ' ').trim();
   }

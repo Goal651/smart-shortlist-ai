@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   UploadCloud, 
   FileText, 
@@ -37,6 +38,15 @@ import { AnalysisDetail, RecentAnalysis } from '@/types/request';
 import { analysisService } from '@/services/analysis';
 
 export default function UploadPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <UploadPageContent />
+    </Suspense>
+  );
+}
+
+function UploadPageContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"upload" | "history">("upload");
   const [jobSource, setJobSource] = useState<"system" | "custom">("system");
   const [customJDMode, setCustomJDMode] = useState<"paste" | "upload">("paste");
@@ -100,6 +110,18 @@ export default function UploadPage() {
   };
 
   useEffect(() => {
+    const analysisId = searchParams.get('analysisId');
+    const tab = searchParams.get('tab');
+    
+    if (tab === 'history') {
+      setActiveTab('history');
+    }
+
+    if (analysisId) {
+      setActiveTab('history');
+      handleOpenAnalysisModal({ _id: analysisId } as any);
+    }
+
     analysisService.getRecentAnalyses()
       .then((response) => {
         if (response.success && response.data) {
@@ -109,7 +131,7 @@ export default function UploadPage() {
       .catch((error) => {
         console.error('Failed to load recent analyses', error);
       });
-  }, []);
+  }, [searchParams]);
 
   const handleRunScreening = async () => {
     if (!selectedJob && !customJD) {

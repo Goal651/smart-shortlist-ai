@@ -32,8 +32,9 @@ export const API_ENDPOINTS = {
     ALL: '/jobs',
     BY_ID: (id: string) => `/jobs/${id}`,
     CREATE: '/jobs',
-    CANDIDATES: (jobId: string) => `/jobs/${jobId}/candidates`,
-    SCREEN: (jobId: string) => `/jobs/${jobId}/screen`,
+    CANDIDATES: (jobId: string) => `/candidates/job/${jobId}`,
+    SCREEN_ALL: (jobId: string) => `/applications/jobs/${jobId}/screen-all`,
+    BULK_UPLOAD: (jobId: string) => `/applications/jobs/${jobId}/bulk-upload`,
     CANDIDATE_BY_ID: (id: string) => `/candidates/${id}`
   }
 };

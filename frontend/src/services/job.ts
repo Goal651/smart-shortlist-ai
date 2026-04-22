@@ -19,6 +19,14 @@ class JobService {
   }
 
   /**
+   * Get all public jobs
+   */
+  async getPublicJobs(): Promise<ApiResponse<Job[]>> {
+    const response = await apiClient.get<Job[]>('/jobs/public');
+    return response;
+  }
+
+  /**
    * Get job by ID
    */
   async getJobById(jobId: string): Promise<ApiResponse<Job>> {

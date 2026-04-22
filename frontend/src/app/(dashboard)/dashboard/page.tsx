@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
    Briefcase,
    Users,
@@ -9,63 +9,45 @@ import {
    TrendingUp,
    Plus,
    Upload,
-   Search,
-   ArrowUpRight,
    Sparkles
 } from "lucide-react";
 import { Typography } from "@/components/ui/Typography";
 import { Button } from "@/components/ui/Button";
 import { RecentJobsTable } from "@/components/dashboard/RecentJobsTable";
 import { RecentCandidatesTable } from "@/components/dashboard/RecentCandidatesTable";
-import { JobCard } from "@/components/dashboard/JobCard";
-import { Select } from "@/components/ui/Select";
 import { Pagination } from "@/components/ui/Pagination";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import { useJobs, useScreening } from '@/hooks/useApi';
 
-const stats = [
-   { label: "Total jobs", value: "6", icon: Briefcase, color: "blue" },
-   { label: "Total candidates", value: "250+", icon: Users, color: "purple" },
-   { label: "AI matches", value: "42", icon: CheckCircle2, color: "green" },
-   { label: "Waitlisted", value: "12", icon: XCircle, color: "red" },
-   { label: "Average score", value: "78%", icon: TrendingUp, color: "orange" },
-];
-
-const jobOptions = [
-   { label: "Frontend engineer", value: "sfe" },
-   { label: "Backend developer", value: "bd" },
-   { label: "UI/UX designer", value: "uud" },
-   { label: "DevOps engineer", value: "de" },
-];
-
-const statusOptions = [
-   { label: "Shortlisted", value: "shortlisted" },
-   { label: "Reviewing", value: "reviewing" },
-   { label: "Rejected", value: "rejected" },
-];
-
 export default function DashboardPage() {
-   const [selectedJob, setSelectedJob] = useState("");
-   const [selectedStatus, setSelectedStatus] = useState("");
    const [currentPage, setCurrentPage] = useState(1);
    const [candidatePage, setCandidatePage] = useState(1);
+   const [jobsTotalPages, setJobsTotalPages] = useState(1);
+   const [candidatesTotalPages, setCandidatesTotalPages] = useState(1);
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
    const { jobs } = useJobs();
-
-   // Get candidates from the first job for dashboard stats
    const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
-   const { candidates, stats } = useScreening(firstJobId || '');
+   const { candidates } = useScreening(firstJobId || '');
 
-   // Calculate real stats
+   const handleJobsTotalPages = useCallback((total: number) => setJobsTotalPages(total), []);
+   const handleCandidatesTotalPages = useCallback((total: number) => setCandidatesTotalPages(total), []);
+
    const realStats = [
       { label: "Total jobs", value: jobs.length.toString(), icon: Briefcase, color: "blue" },
       { label: "Total candidates", value: candidates.length.toString(), icon: Users, color: "purple" },
       { label: "AI matches", value: candidates.filter(c => c.score > 75).length.toString(), icon: CheckCircle2, color: "green" },
       { label: "Waitlisted", value: candidates.filter(c => c.status === 'Review').length.toString(), icon: XCircle, color: "red" },
-      { label: "Average score", value: candidates.length > 0 ? `${Math.round(candidates.reduce((sum, c) => sum + c.score, 0) / candidates.length)}%` : "0%", icon: TrendingUp, color: "orange" },
+      {
+         label: "Average score",
+         value: candidates.length > 0
+            ? `${Math.round(candidates.reduce((sum, c) => sum + c.score, 0) / candidates.length)}%`
+            : "—",
+         icon: TrendingUp,
+         color: "orange"
+      },
    ];
 
    return (
@@ -121,11 +103,11 @@ export default function DashboardPage() {
 
                <div className="space-y-4">
                   <Card className="border-gray-50 overflow-hidden shadow-none">
-                     <RecentJobsTable />
+                     <RecentJobsTable currentPage={currentPage} onTotalPagesChange={handleJobsTotalPages} />
                      <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
                         <Pagination
                            currentPage={currentPage}
-                           totalPages={3}
+                           totalPages={jobsTotalPages}
                            onPageChange={setCurrentPage}
                            className="shadow-none border-0"
                         />
@@ -161,11 +143,11 @@ export default function DashboardPage() {
 
                <div className="space-y-4">
                   <Card className="border-gray-50 overflow-hidden shadow-none">
-                     <RecentCandidatesTable />
+                     <RecentCandidatesTable currentPage={candidatePage} onTotalPagesChange={handleCandidatesTotalPages} />
                      <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
                         <Pagination
                            currentPage={candidatePage}
-                           totalPages={2}
+                           totalPages={candidatesTotalPages}
                            onPageChange={setCandidatePage}
                            className="shadow-none border-0"
                         />

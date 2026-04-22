@@ -15,6 +15,7 @@ export interface IJob extends Document {
     max: number;
     currency: string;
   };
+  owner: string;           // Owner user ID
   isActive: boolean;       // Public visibility
   createdAt: Date;
 }
@@ -38,6 +39,7 @@ const JobSchema: Schema = new Schema({
     max: { type: Number },
     currency: { type: String, default: "RWF" }
   },
+  owner: { type: String }, // Owner user ID
   isActive: { type: Boolean, default: true }, // Public visibility
   createdAt: { type: Date, default: Date.now }
 });

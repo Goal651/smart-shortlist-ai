@@ -86,14 +86,15 @@ export default function CandidatesPage() {
     setIsModalOpen(true);
   };
 
+  const PAGE_SIZE = 10;
   // Convert candidates to Applicant format and filter
   const applicantData = allCandidates.map(convertToApplicant);
   const filteredApplicants = applicantData.filter((c: Applicant) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.source ?? "")
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
+    (c.source ?? "").toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const totalPages = Math.max(1, Math.ceil(filteredApplicants.length / PAGE_SIZE));
+  const pagedApplicants = filteredApplicants.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -200,7 +201,7 @@ export default function CandidatesPage() {
       <Card className="border-gray-50 overflow-hidden shadow-none">
 
         <ApplicantTable
-          applicants={filteredApplicants}
+          applicants={pagedApplicants}
           onView={handleOpenModal}
         />
 
@@ -208,8 +209,8 @@ export default function CandidatesPage() {
 
           <Pagination
             currentPage={currentPage}
-            totalPages={Math.max(1, Math.ceil(filteredApplicants.length / 10))}
-            onPageChange={setCurrentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => { setCurrentPage(page); }}
             className="shadow-none border-0"
           />
 
