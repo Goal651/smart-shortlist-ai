@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { Typography } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { login, isLoading } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,9 +30,20 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+      showToast({
+        title: 'Login Successful',
+        description: 'Welcome back! Redirecting you to the dashboard...',
+        variant: 'success'
+      });
       router.push('/jobs');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const errorMessage = err.message || 'Login failed';
+      setError(errorMessage);
+      showToast({
+        title: 'Authentication Failed',
+        description: errorMessage,
+        variant: 'error'
+      });
     }
   };
 
