@@ -18,6 +18,7 @@ const model = genAI.getGenerativeModel({
   model: 'gemini-3-flash-preview',
   generationConfig: {
     responseMimeType: 'application/json',
+    maxOutputTokens: 8192,
   }
 });
 
