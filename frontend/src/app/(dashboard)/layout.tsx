@@ -6,9 +6,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { NotificationModal } from "@/components/dashboard/NotificationModal";
 import { ProfileModal } from "@/components/dashboard/ProfileModal";
-import { AppProvider } from "@/contexts/AppContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { ToastProvider } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Typography } from "@/components/ui/Typography";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -40,9 +38,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AppProvider>
-      <ToastProvider>
-        <div className="flex min-h-screen bg-[#fafafa]">
+    <div className="flex min-h-screen bg-[#fafafa]">
           {/* Mobile Sidebar Overlay */}
           {isSidebarOpen && (
             <div
@@ -66,11 +62,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </main>
           </div>
 
-          <NotificationModal isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
-          <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
-        </div>
-      </ToastProvider>
-    </AppProvider>
+      <NotificationModal isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+    </div>
   );
 }
 
@@ -80,9 +74,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthProvider>
-      <DashboardContent>{children}</DashboardContent>
-    </AuthProvider>
+    <DashboardContent>{children}</DashboardContent>
   );
 }
 
