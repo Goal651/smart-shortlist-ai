@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Work_Sans } from "next/font/google";
 import "./globals.css";
-import { AppProvider } from "@/contexts/AppContext";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ToastProvider } from "@/contexts/ToastContext";
+import { Providers } from "@/components/Providers";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -31,13 +29,7 @@ export default function RootLayout({
       className={`${dmSans.variable} ${workSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AppProvider>
-          <AuthProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </AuthProvider>
-        </AppProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
