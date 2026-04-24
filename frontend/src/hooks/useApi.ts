@@ -26,12 +26,17 @@ export const useJobs = () => {
     return await actions.createJob(jobData);
   }, [actions.createJob]);
 
+  const updateJob = useCallback(async (jobId: string, jobData: Partial<CreateJobRequest>): Promise<Job> => {
+    return await actions.updateJob(jobId, jobData);
+  }, [actions.updateJob]);
+
   return {
     jobs: state.jobs,
     loading: state.loading.jobs,
     error: state.error,
     fetchJobs: actions.fetchJobs,
     createJob,
+    updateJob,
   };
 };
 
@@ -96,7 +101,7 @@ export const useScreening = (jobId?: string) => {
     shortlisted: candidates.filter(c => c.status === 'Shortlisted').length,
     reviewing: candidates.filter(c => c.status === 'Review').length,
     rejected: candidates.filter(c => c.status === 'Rejected').length,
-    averageScore: candidates.length > 0 
+    averageScore: candidates.length > 0
       ? Math.round(candidates.reduce((sum, c) => sum + c.score, 0) / candidates.length)
       : 0,
   };
@@ -196,7 +201,7 @@ export const useAI = () => {
 
     try {
       const response = await aiService.screenResumes(jobId, files);
-      
+
       if (!response.success || !response.data) {
         throw new Error(response.message || 'Screening failed');
       }

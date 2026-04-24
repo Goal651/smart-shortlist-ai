@@ -52,6 +52,7 @@ type AppAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_JOBS'; payload: Job[] }
   | { type: 'ADD_JOB'; payload: Job }
+  | { type: 'UPDATE_JOB'; payload: Job }
   | { type: 'SET_CANDIDATES'; payload: CandidateWithUI[] }
   | { type: 'ADD_CANDIDATES'; payload: Candidate[] }
   | { type: 'CLEAR_ERROR' };
@@ -88,6 +89,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         jobs: [action.payload, ...state.jobs],
+        loading: { ...state.loading, jobs: false },
+        error: null,
+      };
+    case 'UPDATE_JOB':
+      return {
+        ...state,
+        jobs: state.jobs.map((job) => (job._id === action.payload._id ? action.payload : job)),
         loading: { ...state.loading, jobs: false },
         error: null,
       };
@@ -135,11 +143,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         dispatch({ type: 'SET_LOADING', payload: { jobs: true } });
         const response = await jobService.getAllJobs();
-        
+
         if (!response.success || !response.data) {
           throw new Error(response.message || 'Failed to fetch jobs');
         }
-        
+
         dispatch({ type: 'SET_JOBS', payload: response.data });
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to fetch jobs' });
@@ -163,15 +171,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     },
 
+    updateJob: async (jobId, job) => {
+      try {
+        dispatch({ type: 'SET_LOADING', payload: { jobs: true } });
+        const response = await jobService.updateJob(jobId, job);
+
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Failed to update job');
+        }
+
+        dispatch({ type: 'UPDATE_JOB', payload: response.data });
+        return response.data;
+      } catch (error) {
+        dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to update job' });
+        throw error;
+      }
+    },
+
     fetchCandidates: async (jobId: string) => {
       try {
         dispatch({ type: 'SET_LOADING', payload: { candidates: true } });
         const response = await jobService.getJobCandidates(jobId);
-        
+
         if (!response.success || !response.data) {
           throw new Error(response.message || 'Failed to fetch candidates');
         }
-        
+
         const candidatesWithUI = response.data.map(mapCandidateToUI);
         dispatch({ type: 'SET_CANDIDATES', payload: candidatesWithUI });
       } catch (error) {
@@ -182,7 +207,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     runGeminiScreening: async (jobId: string, files: File[]) => {
       try {
         dispatch({ type: 'SET_LOADING', payload: { screening: true } });
-        
+
         const response = await jobService.screenResumes(jobId, files);
 
         if (!response.success || !response.data) {
@@ -191,7 +216,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Add new candidates to the existing list
         dispatch({ type: 'ADD_CANDIDATES', payload: response.data.candidates });
-        
+
         return response.data;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Screening failed' });

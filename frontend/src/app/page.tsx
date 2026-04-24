@@ -8,6 +8,7 @@ import { Typography } from "@/components/ui/Typography";
 import { useRouter } from "next/navigation";
 import { usePublicJobs } from "@/hooks/useApi";
 import { JobCardPublic } from "@/components/dashboard/JobCardPublic";
+import Image from "next/image";
 
 export default function JobListingsPage() {
   const { jobs, loading, error } = usePublicJobs();
@@ -57,8 +58,9 @@ export default function JobListingsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Briefcase className="h-5 w-5 text-white" />
+              <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center">
+                <Image src="/umurava.png" alt="Logo" width={500} height={500} className="" />
+
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Umurava Careers</h1>
