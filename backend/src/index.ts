@@ -9,6 +9,8 @@ import jobRoutes from './routes/jobRoutes';
 import applicationRoutes from './routes/applicationRoutes';
 import candidateRoutes from './routes/candidateRoutes';
 import analysisRoutes from './routes/analysisRoutes';
+// Import Seeders
+import seedOwner from './seed/seedOwner';
 
 dotenv.config();
 
@@ -28,7 +30,11 @@ app.use((req, res, next) => {
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/umurava-ai';
 
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(async () => {
+    console.log('✅ Connected to MongoDB');
+    // Auto-seed owner user
+    await seedOwner(false);
+  })
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
 // API Routes

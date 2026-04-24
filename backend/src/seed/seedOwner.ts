@@ -7,17 +7,19 @@ dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/umurava-ai';
 
-async function seedOwner() {
+async function seedOwner(shouldDisconnect = true) {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(MONGODB_URI);
-    console.log('Connected to MongoDB');
+    // Connect to MongoDB if not already connected
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(MONGODB_URI);
+    }
+    console.log('Checking for owner user...');
 
     // Check if owner already exists
     const existingOwner = await User.findOne({ role: 'owner' });
     if (existingOwner) {
       console.log('Owner user already exists:', existingOwner.email);
-      await mongoose.disconnect();
+      if (shouldDisconnect) await mongoose.disconnect();
       return;
     }
 
@@ -41,16 +43,16 @@ async function seedOwner() {
     });
 
     await owner.save();
-    console.log('Owner user created successfully!');
+    console.log('✅ Owner user created successfully!');
     console.log('Email:', ownerEmail);
     console.log('Password:', ownerPassword);
-    console.log('Name:', ownerName);
-    console.log('Role: owner');
 
   } catch (error) {
-    console.error('Error seeding owner:', error);
+    console.error('❌ Error seeding owner:', error);
   } finally {
-    await mongoose.disconnect();
+    if (shouldDisconnect) {
+      await mongoose.disconnect();
+    }
   }
 }
 
