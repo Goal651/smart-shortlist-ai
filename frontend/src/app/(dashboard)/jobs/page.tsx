@@ -79,9 +79,9 @@ interface Application {
   jobId: string;
 
   jobTitle: string;
-
-  name: string;
-
+  firstName: string;
+  lastName: string;
+  name?: string;
   email: string;
 
   phone: string;
@@ -342,10 +342,13 @@ export default function JobsPage() {
 
       if (response.success && response.data) {
 
-        setApplications(response.data.applications || []);
-
+        // Map firstName/lastName to name if name is missing
+        const apps = (response.data.applications || []).map(app => ({
+          ...app,
+          name: app.name || `${app.firstName || ''} ${app.lastName || ''}`.trim() || 'Anonymous'
+        }));
+        setApplications(apps);
         setSelectedJob(jobs.find(j => j._id === jobId) || null);
-
         setShowApplicantsModal(true);
 
       }

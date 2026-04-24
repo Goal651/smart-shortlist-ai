@@ -305,6 +305,7 @@ export class ApplicationController {
       if (status) filter.status = status;
       
       const applications = await Application.find(filter)
+        .select('-resumeFile.buffer -extractedText')
         .populate('jobId', 'title location type')
         .sort({ submittedAt: -1 })
         .limit(Number(limit))
