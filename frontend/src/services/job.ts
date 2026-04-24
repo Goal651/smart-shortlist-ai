@@ -69,7 +69,7 @@ class JobService {
    * Update job details
    */
   async updateJob(jobId: string, jobData: Partial<CreateJobRequest>): Promise<ApiResponse<Job>> {
-    const response = await apiClient.put<Job>(API_ENDPOINTS.JOB.BY_ID(jobId), jobData);
+    const response = await apiClient.patch<Job>(API_ENDPOINTS.JOB.BY_ID(jobId), jobData);
     return response;
   }
 
