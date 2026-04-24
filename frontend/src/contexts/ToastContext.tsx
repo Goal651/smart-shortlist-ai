@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { CheckCircle2, AlertTriangle, Info, XCircle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Info, XCircle, X } from "lucide-react";
 
 type ToastVariant = "success" | "error" | "info" | "warning";
 
@@ -55,7 +55,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-3">
+      <div className="fixed right-6 top-6 z-[9999] flex w-full max-w-sm flex-col gap-3">
         {toasts.map((toast) => {
           const Icon =
             toast.variant === "success"
@@ -70,35 +70,45 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <div
               key={toast.id}
               className={
-                "rounded-3xl border bg-white px-4 py-3 shadow-sm transition-all duration-200 " +
+                "group relative overflow-hidden rounded-md border bg-white p-4 shadow-xl shadow-gray-200/50 transition-all duration-300 animate-in slide-in-from-right-full " +
                 (toast.variant === "success"
-                  ? "border-emerald-100"
+                  ? "border-emerald-100/50"
                   : toast.variant === "error"
-                  ? "border-rose-100"
+                  ? "border-rose-100/50"
                   : toast.variant === "warning"
-                  ? "border-amber-100"
-                  : "border-slate-200")
+                  ? "border-amber-100/50"
+                  : "border-gray-100")
               }
             >
-              <div className="flex items-center gap-3">
-                <span className={
-                  "rounded-full p-2 " +
+              <div className="flex items-start gap-4">
+                <div className={
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-md " +
                   (toast.variant === "success"
                     ? "bg-emerald-50 text-emerald-600"
                     : toast.variant === "error"
                     ? "bg-rose-50 text-rose-600"
                     : toast.variant === "warning"
                     ? "bg-amber-50 text-amber-600"
-                    : "bg-slate-100 text-slate-700")
+                    : "bg-blue-50 text-blue-600")
                 }>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  {toast.title ? (
-                    <p className="text-sm font-semibold text-slate-900">{toast.title}</p>
-                  ) : null}
-                  <p className="text-sm leading-5 text-slate-700">{toast.description}</p>
+                  <Icon className="h-5 w-5" />
                 </div>
+                
+                <div className="flex-1 pt-0.5">
+                  <h3 className="text-[13px] font-semibold text-gray-900">
+                    {toast.title || (toast.variant.charAt(0).toUpperCase() + toast.variant.slice(1))}
+                  </h3>
+                  <p className="mt-1 text-[12px] leading-relaxed text-gray-600 font-medium">
+                    {toast.description}
+                  </p>
+                </div>
+
+                <button 
+                  onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
             </div>
           );
