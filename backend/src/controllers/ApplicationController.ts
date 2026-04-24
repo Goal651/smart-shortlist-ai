@@ -576,6 +576,14 @@ export class ApplicationController {
 
       console.log(`✅ Successfully screened ${screenedCandidates.length} candidates`);
 
+      if (screenedCandidates.length === 0) {
+        console.log('❌ All screening batches failed or returned no results.');
+        return res.status(500).json({ 
+          error: "AI screening failed for all candidates",
+          details: "Zero candidates were successfully processed."
+        });
+      }
+
       // Create Analysis record
       const analysis = new Analysis({
         jobId: job._id,
@@ -584,10 +592,8 @@ export class ApplicationController {
         fileCount: applications.length,
         candidateCount: screenedCandidates.length,
         screened: true,
-        topScore: screenedCandidates.length > 0 ? screenedCandidates.reduce((max, c) => Math.max(max, c.aiAnalysis?.score || 0), 0) : 0,
-        averageScore: screenedCandidates.length > 0 
-          ? screenedCandidates.reduce((sum, c) => sum + (c.aiAnalysis?.score || 0), 0) / screenedCandidates.length 
-          : 0,
+        topScore: screenedCandidates.reduce((max, c) => Math.max(max, c.aiAnalysis?.score || 0), 0),
+        averageScore: screenedCandidates.reduce((sum, c) => sum + (c.aiAnalysis?.score || 0), 0) / screenedCandidates.length,
         results: screenedCandidates.map(c => ({
           candidateId: c._id as any,
           email: c.email,

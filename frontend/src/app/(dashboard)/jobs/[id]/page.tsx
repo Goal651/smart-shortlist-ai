@@ -14,6 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/services/client";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Job {
   _id: string;
@@ -126,17 +127,33 @@ export default function JobDetailPage() {
     }
   }, [applications]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { showToast } = useToast();
+
   const handleScreenAll = async () => {
     setIsScreeningAll(true);
     try {
       const res = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${id}/screen-all`);
       if (res.success && res.data) {
+        showToast({
+          title: "Screening Started",
+          description: "AI is analyzing the applications. Redirecting you to the history...",
+          variant: "success"
+        });
         // Redirect to analysis history with the new analysis opened
         router.push(`/upload?tab=history&analysisId=${res.data.analysisId}`);
       } else {
-        alert(res.message || "Failed to screen applications");
+        showToast({
+          title: "Screening Failed",
+          description: res.message || "Failed to screen applications",
+          variant: "error"
+        });
       }
     } catch (err: any) {
+      showToast({
+        title: "Error",
+        description: err.response?.data?.error || "Failed to screen applications. Please try again later.",
+        variant: "error"
+      });
       console.log(err.response?.data?.error || "Failed to screen applications")
     } finally {
       setIsScreeningAll(false);
