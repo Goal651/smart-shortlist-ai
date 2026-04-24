@@ -83,7 +83,7 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Applicant Analysis Report" className="max-w-4xl max-h-[90vh]">
-      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+      <div className="space-y-4 max-h-[70vh]">
         {/* Profile Info Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4 pb-4 border-b border-gray-50">
           <div className="flex items-center space-x-4">
