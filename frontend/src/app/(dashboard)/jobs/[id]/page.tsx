@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/services/client";
 import { useToast } from "@/contexts/ToastContext";
+import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 
 interface Job {
   _id: string;
@@ -69,12 +70,6 @@ export default function JobDetailPage() {
   
   // Edit Job Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    location: "",
-    type: "",
-    description: ""
-  });
   const [isDeleting, setIsDeleting] = useState(false);
 
   const getToken = () => localStorage.getItem("auth_token");
@@ -84,14 +79,7 @@ export default function JobDetailPage() {
       setJobError(false);
       const res = await apiClient.get<Job>(`/jobs/${id}`);
       if (res.success && res.data) {
-        const data = res.data;
-        setJob(data);
-        setEditForm({
-          title: data.title,
-          location: data.location,
-          type: data.type,
-          description: data.description
-        });
+        setJob(res.data);
       } else {
         setJobError(true);
       }
@@ -160,17 +148,6 @@ export default function JobDetailPage() {
     }
   };
 
-  const handleUpdateJob = async () => {
-    try {
-      const res = await apiClient.patch(`/jobs/${id}`, editForm);
-      if (res.success) {
-        setIsEditModalOpen(false);
-        fetchJob();
-      }
-    } catch (error) {
-      alert("Failed to update job");
-    }
-  };
 
   const handleDeleteJob = async () => {
     if (!confirm("Are you sure you want to delete this job? This will also delete all applications and candidates.")) return;
@@ -578,48 +555,15 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      {/* Edit Job Modal */}
-      <Modal 
+      <CreateJobModal 
         isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Job Information"
-      >
-        <div className="space-y-4 pt-4">
-          <Input 
-            label="Job Title"
-            value={editForm.title}
-            onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-            placeholder="e.g. Senior Software Engineer"
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Location"
-              value={editForm.location}
-              onChange={(e) => setEditForm({...editForm, location: e.target.value})}
-              placeholder="e.g. Remote / Kigali"
-            />
-            <Input 
-              label="Job Type"
-              value={editForm.type}
-              onChange={(e) => setEditForm({...editForm, type: e.target.value})}
-              placeholder="e.g. Full-time"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Description</label>
-            <textarea 
-              className="w-full h-40 p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm"
-              value={editForm.description}
-              onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-              placeholder="Detailed job description..."
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateJob}>Save Changes</Button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => {
+          setIsEditModalOpen(false);
+          fetchJob();
+        }}
+        isEdit={true}
+        jobId={id as string}
+      />
 
       {/* Detail modal */}
       {selectedApp && (
