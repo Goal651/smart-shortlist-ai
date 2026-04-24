@@ -1,7 +1,7 @@
 // API Configuration Constants
 
-const PROD_SERVER = 'http://localhost:5000';
-const DEV_SERVER = 'http://localhost:5000'
+const PROD_SERVER = ''; // Use relative path for monolithic deployment
+const DEV_SERVER = ''; // Next.js rewrites handle this in development
 
 export const API_CONFIG = {
   BASE_URL: process.env.NODE_ENV === 'development' ? DEV_SERVER : PROD_SERVER,
