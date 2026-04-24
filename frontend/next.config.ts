@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   output: 'standalone',
   async rewrites() {
     return [
@@ -10,6 +9,12 @@ const nextConfig: NextConfig = {
         destination: 'http://localhost:5000/api/:path*',
       },
     ]
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 };
 

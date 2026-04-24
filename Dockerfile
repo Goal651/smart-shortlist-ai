@@ -1,20 +1,20 @@
 # ============================================
 # Stage 1: Build Backend
 # ============================================
-FROM node:18-alpine AS backend-builder
+FROM node:20-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
-RUN npm ci
+RUN npm install
 COPY backend/ .
 RUN npm run build
 
 # ============================================
 # Stage 2: Build Frontend
 # ============================================
-FROM node:18-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+RUN npm install
 COPY frontend/ .
 # We need to set production for Next.js build
 ENV NODE_ENV=production
@@ -24,7 +24,7 @@ RUN npm run build
 # ============================================
 # Stage 3: Final Monolithic Image
 # ============================================
-FROM node:18-alpine AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Install root dependencies (for the proxy)
