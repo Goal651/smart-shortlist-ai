@@ -51,7 +51,7 @@ class CandidateService {
    * Get all candidates across all jobs (admin function)
    */
   async getAllCandidates(): Promise<ApiResponse<Candidate[]>> {
-    const response = await apiClient.get<Candidate[]>('/admin/candidates');
+    const response = await apiClient.get<Candidate[]>('/candidates');
     return response;
   }
 
