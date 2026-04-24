@@ -1,0 +1,11 @@
+{
+  "name": "smart-shortlist-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo for Smart Shortlist AI",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

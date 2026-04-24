@@ -1,0 +1,18 @@
+services:
+  # Monolithic Deployment (Backend + Frontend)
+  - type: web
+    name: smart-shortlist-ai
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    plan: free
+    # The health check ensures the service is up before switching traffic
+    healthCheckPath: /api/test
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # PORT is automatically set by Render, but we use 10000 as a default in our proxy
+      - key: PORT
+        value: 10000
+      # The following variables should be set in the Render Dashboard:
+      # - MONGODB_URI
+      # - GEMINI_API_KEY
