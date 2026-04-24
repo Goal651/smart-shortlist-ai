@@ -7,6 +7,8 @@ export interface AIReasoning {
   gaps: string[]; // Mapped from gaps
   recommendation: string; // Mapped from summary
   risks?: string[]; // Optional field for UI
+  insights?: string; // Mapped from reasoning
+  recommendations?: string[]; // Mapped from recommendations
 }
 
 // Enhanced Candidate interface with UI-specific fields
@@ -27,11 +29,21 @@ export interface RecentAnalysis {
 
 export interface AnalysisCandidateSummary {
   _id?: string;
-  name: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   score: number;
   summary?: string;
   email?: string;
   linkedin?: string;
+  aiAnalysis?: {
+    score: number;
+    summary: string;
+    topSkills: string[];
+    gaps: string[];
+    reasoning?: string;
+    recommendations?: string[];
+  };
 }
 
 export interface AnalysisDetail extends RecentAnalysis {

@@ -46,10 +46,10 @@ export class CandidateController {
       const analysis = await Analysis.findById(req.params.id).select('-__v');
       if (!analysis) return res.status(404).json({ error: "Analysis record not found" });
 
-      const topCandidates = await Candidate.find({ jobId: analysis.jobId })
+      const candidateIds = analysis.results.map(r => r.candidateId);
+      const topCandidates = await Candidate.find({ _id: { $in: candidateIds } })
         .sort({ 'aiAnalysis.score': -1 })
-        .limit(5)
-        .select('firstName lastName email aiAnalysis.score aiAnalysis.summary socialLinks');
+        .select('firstName lastName email aiAnalysis socialLinks');
 
       res.json({
         ...analysis.toObject(),

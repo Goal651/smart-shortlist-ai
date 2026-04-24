@@ -13,13 +13,17 @@ interface ApplicantDetailsModalProps {
   applicant: {
     _id?: string;
     id?: string;
-    name: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
     score: number;
     summary?: string;
     top_skills?: string[];
     gaps?: string[];
     status: 'Shortlisted' | 'Review' | 'Rejected' | string;
     email?: string;
+    headline?: string;
+    bio?: string;
     linkedin?: string;
     createdAt?: string;
     extractedText?: string;
@@ -27,8 +31,17 @@ interface ApplicantDetailsModalProps {
     aiReasoning?: {
       strengths: string[];
       gaps: string[];
-      risks?: string[];
       recommendation: string;
+      insights?: string;
+      recommendations?: string[];
+    };
+    aiAnalysis?: {
+      score: number;
+      summary: string;
+      topSkills: string[];
+      gaps: string[];
+      reasoning?: string;
+      recommendations?: string[];
     };
   } | null;
 }
@@ -37,23 +50,28 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
   if (!applicant) return null;
 
   // Build reasoning from real candidate data
-  const reasoning = applicant.aiReasoning ? {
-    strengths: applicant.aiReasoning.strengths,
-    gaps: applicant.aiReasoning.gaps,
-    risks: applicant.aiReasoning.risks || [],
-    recommendation: applicant.aiReasoning.recommendation,
-  } : {
-    strengths: applicant.top_skills && applicant.top_skills.length > 0 
-      ? applicant.top_skills.slice(0, 2).map(skill => `Strong ${skill} skill`)
-      : ["Strong technical foundation", "Relevant experience"],
-    gaps: applicant.gaps ? applicant.gaps.slice(0, 2) : [],
-    risks: applicant.gaps ? applicant.gaps.slice(2, 3) : [],
-    recommendation: applicant.score >= 85 
-      ? "Highly recommended for further interview based on strong skills match."
-      : applicant.score >= 70 
-      ? "Recommended with minor skill gaps. Consider for technical assessment."
-      : "Needs further evaluation. Skills alignment is moderate."
+  const reasoning = {
+    strengths: applicant.aiAnalysis?.topSkills || (applicant as any).screeningResult?.topSkills || applicant.aiReasoning?.strengths || applicant.top_skills || [],
+    gaps: applicant.aiAnalysis?.gaps || (applicant as any).screeningResult?.gaps || applicant.aiReasoning?.gaps || applicant.gaps || [],
+    recommendation: applicant.aiAnalysis?.summary || (applicant as any).screeningResult?.summary || applicant.aiReasoning?.recommendation || applicant.summary || "",
+    insights: applicant.aiAnalysis?.reasoning || (applicant as any).screeningResult?.reasoning || applicant.aiReasoning?.insights || (applicant as any).aiAnalysis?.summary || "",
+    recommendations: applicant.aiAnalysis?.recommendations || applicant.aiReasoning?.recommendations || [],
+    risks: applicant.aiReasoning?.risks || [],
   };
+
+  // If we still don't have a recommendation, use a fallback based on score
+  if (!reasoning.recommendation) {
+    reasoning.recommendation = (applicant.score ?? 0) >= 85 
+      ? "Highly recommended for further interview based on strong skills match."
+      : (applicant.score ?? 0) >= 70 
+      ? "Recommended with minor skill gaps. Consider for technical assessment."
+      : "Needs further evaluation. Skills alignment is moderate.";
+  }
+
+  // Fallback for strengths if empty
+  if (reasoning.strengths.length === 0) {
+    reasoning.strengths = ["Technical foundation", "Relevant experience"];
+  }
 
   const appliedDate = applicant.createdAt 
     ? new Date(applicant.createdAt).toLocaleDateString('en-US', { 
@@ -64,8 +82,8 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
     : "Recently";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Applicant Analysis Report" className="max-w-4xl">
-      <div className="space-y-5">
+    <Modal isOpen={isOpen} onClose={onClose} title="Applicant Analysis Report" className="max-w-4xl max-h-[90vh]">
+      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
         {/* Profile Info Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4 pb-4 border-b border-gray-50">
           <div className="flex items-center space-x-4">
@@ -80,29 +98,42 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
               </div>
             </div>
             <div className="space-y-0.5">
-               <div className="flex items-center space-x-2">
-                  <Typography variant="h3" className="text-lg font-medium text-gray-900">{applicant.name}</Typography>
+                <div className="flex items-center space-x-2">
+                  <Typography variant="h3" className="text-lg font-medium text-gray-900">
+                    {applicant.firstName && applicant.lastName 
+                      ? `${applicant.firstName} ${applicant.lastName}` 
+                      : applicant.name || "Unknown Candidate"}
+                  </Typography>
+                  {applicant.headline && (
+                    <Typography variant="caption" className="text-[10px] text-primary/80 font-medium block">
+                      {applicant.headline}
+                    </Typography>
+                  )}
                   <span className="px-2 py-0.5 bg-gray-50 text-gray-600 rounded-lg text-[9px] font-medium border border-gray-100">
                     {applicant.source || "External PDF"}
                   </span>
                </div>
-              <div className="flex items-center space-x-2 text-gray-600">
+               <div className="flex items-center space-x-2 text-gray-600">
                 <Mail className="h-3 w-3" />
-                <Typography variant="caption" className="text-[11px] font-medium">{applicant.email || 'Not provided'}</Typography>
+                <Typography variant="caption" className="text-[11px] font-medium">
+                  {applicant.email || (applicant as any).candidateId?.email || 'Not provided'}
+                </Typography>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
-             <div className={cn(
-                "h-12 w-12 rounded-xl flex flex-col items-center justify-center border transition-all shadow-none",
-                applicant.score >= 80 ? "bg-green-50 text-green-600 border-green-100" : 
-                applicant.score >= 70 ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-red-50 text-red-600 border-red-100"
+          <div className="flex flex-col items-center gap-1">
+              <div className={cn(
+                "h-14 w-14 rounded-2xl flex flex-col items-center justify-center border transition-all shadow-sm ring-4 ring-white",
+                (applicant.aiAnalysis?.score ?? (applicant as any).screeningResult?.score ?? applicant.score ?? 0) >= 80 ? "bg-green-50 text-green-600 border-green-200" : 
+                (applicant.aiAnalysis?.score ?? (applicant as any).screeningResult?.score ?? applicant.score ?? 0) >= 70 ? "bg-orange-50 text-orange-600 border-orange-200" : "bg-red-50 text-red-600 border-red-200"
              )}>
-                <Typography variant="h2" className="text-base font-medium leading-none">{applicant.score}</Typography>
-                <Typography variant="small" className="text-[8px] font-medium tracking-tighter opacity-70">Match</Typography>
+                <div className="text-xl font-bold leading-none">
+                  {applicant.aiAnalysis?.score ?? (applicant as any).screeningResult?.score ?? applicant.score ?? 0}
+                </div>
+                <div className="text-[9px] font-bold tracking-tight opacity-80 uppercase">Match</div>
              </div>
-             <Typography variant="caption" className="text-[9px] text-gray-600 text-center block">Applied {appliedDate}</Typography>
+             <Typography variant="caption" className="text-[10px] text-gray-500 font-medium">Applied {appliedDate}</Typography>
           </div>
         </div>
 
@@ -160,8 +191,8 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
                     <Typography variant="body" className="font-medium text-xs text-gray-600 tracking-widest">Top Skills</Typography>
                  </div>
                  <div className="space-y-2 pl-5 border-l border-gray-100 ml-1.5">
-                    {(applicant.top_skills && applicant.top_skills.length > 0) ? (
-                      applicant.top_skills.slice(0, 5).map((skill, i) => (
+                    {reasoning.strengths && reasoning.strengths.length > 0 ? (
+                      reasoning.strengths.slice(0, 8).map((skill, i) => (
                         <div key={i} className="space-y-0.5">
                            <Typography variant="body" className="text-[11px] font-medium text-gray-900">{skill}</Typography>
                         </div>
@@ -180,11 +211,43 @@ export function ApplicantDetailsModal({ isOpen, onClose, applicant }: ApplicantD
                     <Typography variant="body" className="font-medium text-[10px] text-gray-600 tracking-widest">Candidate Summary</Typography>
                  </div>
                  <Typography variant="body" className="text-[11px] text-gray-600 leading-relaxed font-work-sans">
-                    {applicant.summary || "No summary available"}
+                    {reasoning.recommendation || applicant.summary || applicant.bio || "No summary available"}
                  </Typography>
               </div>
            </div>
         </div>
+
+         {/* Detailed Insights & Recommendations */}
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            <div className="space-y-3">
+               <div className="flex items-center space-x-2 text-gray-900">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <Typography variant="body" className="font-medium text-[10px] text-gray-600 tracking-widest">AI Insights (Deep Reasoning)</Typography>
+               </div>
+               <Typography variant="body" className="text-[11px] text-gray-700 leading-relaxed font-work-sans bg-gray-50/50 p-3 rounded-xl border border-gray-100/50 italic">
+                  {reasoning.insights || "No detailed insights available for this candidate."}
+               </Typography>
+            </div>
+
+            <div className="space-y-3">
+               <div className="flex items-center space-x-2 text-gray-900">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                  <Typography variant="body" className="font-medium text-[10px] text-gray-600 tracking-widest">Actionable Recommendations</Typography>
+               </div>
+               <div className="space-y-1.5">
+                  {reasoning.recommendations && reasoning.recommendations.length > 0 ? (
+                    reasoning.recommendations.map((rec, i) => (
+                      <div key={i} className="flex items-center space-x-2 px-3 py-1.5 bg-primary/2 rounded-lg border border-primary/5">
+                        <CheckCircle2 className="h-3 w-3 text-primary/60" />
+                        <Typography variant="body" className="text-[11px] text-gray-700">{rec}</Typography>
+                      </div>
+                    ))
+                  ) : (
+                    <Typography variant="body" className="text-[11px] text-gray-600 italic">No specific recommendations provided</Typography>
+                  )}
+               </div>
+            </div>
+         </div>
 
         {/* Action Footer */}
         <div className="pt-4 border-t border-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">

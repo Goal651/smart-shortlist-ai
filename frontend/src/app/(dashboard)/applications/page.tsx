@@ -13,6 +13,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Typography } from "@/components/ui/Typography";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/services/client";
+import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 
 interface Application {
   _id: string;
@@ -29,6 +30,13 @@ interface Application {
   topSkills?: string[];
   gaps?: string[];
   screenedAt?: string;
+  screeningResult?: {
+    score: number;
+    summary: string;
+    topSkills: string[];
+    gaps: string[];
+    reasoning?: string;
+  };
 }
 
 const statusColors: Record<string, string> = {
@@ -79,7 +87,14 @@ export default function ApplicationsPage() {
       };
       const res = await apiClient.get<{ applications: Application[]; pagination: { total: number; pages: number } }>(`/applications`, params);
       if (res.success && res.data) {
-        setApplications(res.data.applications || []);
+        const apps = (res.data.applications || []).map(app => ({
+          ...app,
+          score: app.score ?? app.screeningResult?.score,
+          summary: app.summary ?? app.screeningResult?.summary,
+          topSkills: app.topSkills ?? app.screeningResult?.topSkills,
+          gaps: app.gaps ?? app.screeningResult?.gaps
+        }));
+        setApplications(apps);
         setTotal(res.data.pagination?.total || 0);
         setTotalPages(res.data.pagination?.pages || 1);
       }
@@ -105,10 +120,10 @@ export default function ApplicationsPage() {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (
-      a.firstName.toLowerCase().includes(q) ||
-      a.lastName.toLowerCase().includes(q) ||
-      a.email.toLowerCase().includes(q) ||
-      a.jobId?.title?.toLowerCase().includes(q)
+      (a.firstName || "").toLowerCase().includes(q) ||
+      (a.lastName || "").toLowerCase().includes(q) ||
+      (a.email || "").toLowerCase().includes(q) ||
+      (a.jobId?.title || "").toLowerCase().includes(q)
     );
   });
 
@@ -222,70 +237,12 @@ export default function ApplicationsPage() {
         </Card>
       )}
 
-      {/* Detail modal */}
-      {selectedApp && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedApp(null)}>
-          <Card className="max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-lg font-semibold text-gray-900">{selectedApp.firstName} {selectedApp.lastName}</p>
-                <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border font-medium mt-1", statusColors[selectedApp.status])}>
-                  <StatusIcon status={selectedApp.status} />{selectedApp.status}
-                </span>
-              </div>
-              <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1">×</button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><p className="text-xs text-gray-500 mb-0.5">Email</p><p className="font-medium text-gray-900 truncate">{selectedApp.email}</p></div>
-              {selectedApp.phone && <div><p className="text-xs text-gray-500 mb-0.5">Phone</p><p className="font-medium text-gray-900">{selectedApp.phone}</p></div>}
-              <div><p className="text-xs text-gray-500 mb-0.5">Position</p><p className="font-medium text-gray-900">{selectedApp.jobId?.title}</p></div>
-              <div><p className="text-xs text-gray-500 mb-0.5">Applied</p><p className="font-medium text-gray-900">{fmt(selectedApp.submittedAt)}</p></div>
-              {selectedApp.score != null && <div><p className="text-xs text-gray-500 mb-0.5">Score</p><p className="font-semibold text-gray-900">{selectedApp.score}/100</p></div>}
-              {selectedApp.screenedAt && <div><p className="text-xs text-gray-500 mb-0.5">Screened</p><p className="font-medium text-gray-900">{fmt(selectedApp.screenedAt)}</p></div>}
-              {selectedApp.linkedin && (
-                <div className="col-span-2"><p className="text-xs text-gray-500 mb-0.5">LinkedIn</p>
-                  <a href={selectedApp.linkedin} target="_blank" className="text-primary text-sm hover:underline truncate block">{selectedApp.linkedin}</a>
-                </div>
-              )}
-            </div>
-
-            {selectedApp.summary && (
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <p className="text-xs font-semibold text-gray-700 mb-1">AI Summary</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{selectedApp.summary}</p>
-              </div>
-            )}
-
-            {selectedApp.topSkills && selectedApp.topSkills.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Top Skills</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedApp.topSkills.map((s, i) => <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">{s}</span>)}
-                </div>
-              </div>
-            )}
-
-            {selectedApp.gaps && selectedApp.gaps.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Skill Gaps</p>
-                <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                  {selectedApp.gaps.map((g, i) => <li key={i}>{g}</li>)}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-50">
-              <Button variant="outline" onClick={() => setSelectedApp(null)}>Close</Button>
-              {selectedApp.status === "Applied" && (
-                <Button onClick={() => { handleScreen(selectedApp._id); setSelectedApp(null); }} disabled={screeningId === selectedApp._id}>
-                  Screen Application
-                </Button>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
+      {/* Unified Detail Modal */}
+      <ApplicantDetailsModal
+        isOpen={!!selectedApp}
+        onClose={() => setSelectedApp(null)}
+        applicant={selectedApp as any}
+      />
     </div>
   );
 }

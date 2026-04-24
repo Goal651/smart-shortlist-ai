@@ -11,7 +11,9 @@ export type ApplicantSource =
 
 export interface Applicant {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
   score: number;
   status: string;
   date: string;
@@ -77,7 +79,9 @@ export function ApplicantTable({
                     variant="body"
                     className="text-sm font-medium text-gray-900 group-hover:text-primary"
                   >
-                    {applicant.name}
+                    {applicant.firstName && applicant.lastName 
+                      ? `${applicant.firstName} ${applicant.lastName}` 
+                      : applicant.name || "Candidate"}
                   </Typography>
                 </td>
 
@@ -92,7 +96,7 @@ export function ApplicantTable({
                         : "bg-red-50 text-red-600 border-red-100"
                     )}
                   >
-                    {applicant.score}
+                    {(applicant as any).aiAnalysis?.score ?? applicant.score ?? 0}
                   </div>
                 </td>
 
