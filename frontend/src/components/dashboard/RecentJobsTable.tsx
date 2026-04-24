@@ -40,7 +40,7 @@ export function RecentJobsTable({ currentPage, onTotalPagesChange }: RecentJobsT
             title: job.title,
             candidates: jobCandidates.length,
             avgScore,
-            status: "Active",
+            status: job.isActive === false ? "Closed" : "Active",
             created: new Date(job.createdAt).toLocaleDateString('en-CA')
           };
         } catch (error) {
@@ -50,7 +50,7 @@ export function RecentJobsTable({ currentPage, onTotalPagesChange }: RecentJobsT
             title: job.title,
             candidates: 0,
             avgScore: 0,
-            status: "Active",
+            status: job.isActive === false ? "Closed" : "Active",
             created: new Date(job.createdAt).toLocaleDateString('en-CA')
           };
         }

@@ -15,4 +15,5 @@ export interface Job {
     currency: string;
   };
   createdAt: string;
+  isActive?: boolean;
 }

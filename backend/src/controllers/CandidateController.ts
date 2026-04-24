@@ -3,6 +3,20 @@ import Candidate from '../models/Candidate';
 import Analysis from '../models/Analysis';
 
 export class CandidateController {
+  static async getAllCandidates(req: Request, res: Response) {
+    try {
+      const limit = Number(req.query.limit) || 50;
+      const candidates = await Candidate.find()
+        .select('-extractedText')
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      res.json(candidates);
+    } catch (error) {
+      console.error('Error fetching all candidates:', error);
+      res.status(500).json({ error: "Failed to fetch all candidates" });
+    }
+  }
+
   static async getCandidatesByJob(req: Request, res: Response) {
     try {
       const { jobId } = req.params;

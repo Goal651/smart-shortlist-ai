@@ -7,6 +7,7 @@ const router = express.Router();
 // All candidate routes are protected
 router.use(authenticateToken);
 
+router.get('/', CandidateController.getAllCandidates);
 router.get('/job/:jobId', CandidateController.getCandidatesByJob);
 router.get('/recent-analyses', CandidateController.getRecentAnalyses);
 router.get('/analysis/:id', CandidateController.getAnalysisDetails);

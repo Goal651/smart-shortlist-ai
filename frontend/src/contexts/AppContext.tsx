@@ -11,7 +11,7 @@ import { candidateService } from '@/services/candidate';
 import { aiService } from '@/services/ai';
 
 // Helper function to map backend Candidate to frontend CandidateWithUI
-const mapCandidateToUI = (candidate: Candidate): CandidateWithUI => {
+export const mapCandidateToUI = (candidate: Candidate): CandidateWithUI => {
   const aiReasoning: AIReasoning = {
     strengths: candidate.aiAnalysis?.topSkills || candidate.top_skills || [],
     gaps: candidate.aiAnalysis?.gaps || candidate.gaps || [],

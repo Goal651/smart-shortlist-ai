@@ -12,8 +12,10 @@ import { ApplicantTable, type Applicant } from "@/components/dashboard/Applicant
 import { Pagination } from "@/components/ui/Pagination";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
 import { cn } from "@/lib/utils";
-import { useJobs, useScreening } from "@/hooks/useApi";
+import { useJobs } from "@/hooks/useApi";
 import { CandidateWithUI } from "@/types/request";
+import { candidateService } from "@/services/candidate";
+import { mapCandidateToUI } from "@/contexts/AppContext";
 
 // Converts a raw CandidateWithUI into the Applicant shape the table needs,
 // while preserving ALL fields the ApplicantDetailsModal uses so both pages
@@ -86,12 +88,21 @@ export default function CandidatesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { jobs } = useJobs();
-  const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
-  const { candidates } = useScreening(firstJobId || '');
 
   useEffect(() => {
-    if (candidates.length > 0) setAllCandidates(candidates);
-  }, [candidates]);
+    const fetchAllCandidates = async () => {
+      try {
+        const response = await candidateService.getAllCandidates();
+        if (response.success && response.data) {
+          const candidatesWithUI = response.data.map(mapCandidateToUI);
+          setAllCandidates(candidatesWithUI);
+        }
+      } catch (error) {
+        console.error("Failed to fetch all candidates:", error);
+      }
+    };
+    fetchAllCandidates();
+  }, []);
 
   const handleOpenModal = (applicant: Applicant) => {
     setSelectedApplicant(applicant as ReturnType<typeof convertToApplicant>);

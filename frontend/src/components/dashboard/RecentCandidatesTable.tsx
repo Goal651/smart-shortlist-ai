@@ -5,8 +5,10 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Eye } from "lucide-react";
 import { ApplicantDetailsModal } from "@/components/dashboard/ApplicantDetailsModal";
-import { useJobs, useScreening } from '@/hooks/useApi';
+import { useJobs } from '@/hooks/useApi';
 import { CandidateWithUI } from '@/types/request';
+import { candidateService } from '@/services/candidate';
+import { mapCandidateToUI } from '@/contexts/AppContext';
 
 const PAGE_SIZE = 5;
 
@@ -26,20 +28,29 @@ export function RecentCandidatesTable({ currentPage, onTotalPagesChange }: Recen
   const [matchLimit, setMatchLimit] = useState<number>(5);
 
   const { jobs } = useJobs();
-  
-  // Get candidates from the first job for recent candidates display
-  const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
-  const { candidates } = useScreening(firstJobId || '');
 
   useEffect(() => {
-    if (candidates.length > 0 && jobs.length > 0) {
-      const candidatesWithJob: CandidateWithJob[] = candidates.map(candidate => ({
-        ...candidate,
-        jobTitle: jobs[0]?.title || 'Unknown Job'
-      }));
-      setRecentCandidates(candidatesWithJob);
-    }
-  }, [candidates, jobs]);
+    const fetchRecentCandidates = async () => {
+      try {
+        const response = await candidateService.getAllCandidates();
+        if (response.success && response.data) {
+          const candidatesWithJob: CandidateWithJob[] = response.data.map(candidate => {
+            const uiCandidate = mapCandidateToUI(candidate);
+            const job = jobs.find(j => j._id === candidate.jobId);
+            return {
+              ...uiCandidate,
+              jobTitle: job?.title || 'Unknown Job'
+            };
+          });
+          setRecentCandidates(candidatesWithJob);
+        }
+      } catch (error) {
+        console.error("Failed to fetch recent candidates:", error);
+      }
+    };
+
+    fetchRecentCandidates();
+  }, [jobs]);
 
   // Notify parent of total pages
   useEffect(() => {

@@ -19,7 +19,11 @@ import { Pagination } from "@/components/ui/Pagination";
 import { CreateJobModal } from "@/components/dashboard/CreateJobModal";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
-import { useJobs, useScreening } from '@/hooks/useApi';
+import { useJobs } from '@/hooks/useApi';
+import { useEffect } from "react";
+import { candidateService } from "@/services/candidate";
+import { mapCandidateToUI } from "@/contexts/AppContext";
+import { CandidateWithUI } from "@/types/request";
 
 export default function DashboardPage() {
    const [currentPage, setCurrentPage] = useState(1);
@@ -28,22 +32,37 @@ export default function DashboardPage() {
    const [candidatesTotalPages, setCandidatesTotalPages] = useState(1);
    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+   const [allCandidates, setAllCandidates] = useState<CandidateWithUI[]>([]);
+
    const { jobs } = useJobs();
-   const firstJobId = jobs.length > 0 ? jobs[0]._id : null;
-   const { candidates } = useScreening(firstJobId || '');
+
+   useEffect(() => {
+     const fetchAllCandidates = async () => {
+       try {
+         const response = await candidateService.getAllCandidates();
+         if (response.success && response.data) {
+           const candidatesWithUI = response.data.map(mapCandidateToUI);
+           setAllCandidates(candidatesWithUI);
+         }
+       } catch (error) {
+         console.error("Failed to fetch all candidates:", error);
+       }
+     };
+     fetchAllCandidates();
+   }, []);
 
    const handleJobsTotalPages = useCallback((total: number) => setJobsTotalPages(total), []);
    const handleCandidatesTotalPages = useCallback((total: number) => setCandidatesTotalPages(total), []);
 
    const realStats = [
       { label: "Total jobs", value: jobs.length.toString(), icon: Briefcase, color: "blue" },
-      { label: "Total candidates", value: candidates.length.toString(), icon: Users, color: "purple" },
-      { label: "AI matches", value: candidates.filter(c => c.score > 75).length.toString(), icon: CheckCircle2, color: "green" },
-      { label: "Waitlisted", value: candidates.filter(c => c.status === 'Review').length.toString(), icon: XCircle, color: "red" },
+      { label: "Total candidates", value: allCandidates.length.toString(), icon: Users, color: "purple" },
+      { label: "AI matches", value: allCandidates.filter(c => c.score > 75).length.toString(), icon: CheckCircle2, color: "green" },
+      { label: "Waitlisted", value: allCandidates.filter(c => c.status === 'Review').length.toString(), icon: XCircle, color: "red" },
       {
          label: "Average score",
-         value: candidates.length > 0
-            ? `${Math.round(candidates.reduce((sum, c) => sum + c.score, 0) / candidates.length)}%`
+         value: allCandidates.length > 0
+            ? `${Math.round(allCandidates.reduce((sum, c) => sum + c.score, 0) / allCandidates.length)}%`
             : "—",
          icon: TrendingUp,
          color: "orange"
