@@ -15,7 +15,7 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash',
+  model: 'gemini-3-flash-preview',
   generationConfig: {
     responseMimeType: 'application/json',
   }
@@ -88,22 +88,30 @@ ${jobDescription}
 RESUMES:
 ${resumes.map((r, i) => `--- RESUME ${i + 1} ---\n${r}`).join('\n\n')}
 
-For each candidate, provide:
+For each candidate, provide a deep, professional evaluation:
 1. firstName, lastName (extracted from resume)
 2. email, headline (professional title), bio (summary), location
-3. skills: array of {name, level, yearsOfExperience} where level is ONE OF: "Beginner", "Intermediate", "Advanced", "Expert"
+3. skills: exhaustive array of {name, level, yearsOfExperience} where level is ONE OF: "Beginner", "Intermediate", "Advanced", "Expert"
 4. languages: array of {name, proficiency} where proficiency is ONE OF: "Basic", "Conversational", "Fluent", "Native"
-5. experience: array of {company, role, startDate (YYYY-MM), endDate (YYYY-MM or "Present"), description, technologies, isCurrent}
+5. experience: detailed array of {company, role, startDate (YYYY-MM), endDate (YYYY-MM or "Present"), description (detailed summary of achievements), technologies, isCurrent}
 6. education: array of {institution, degree, fieldOfStudy, startYear (number), endYear (number)}
 7. availability: {status, type} where status is ONE OF: "Available", "Open to Opportunities", "Not Available" and type is ONE OF: "Full-time", "Part-time", "Contract"
 8. socialLinks: {linkedin, github, portfolio}
-9. aiAnalysis: {score (0-100), summary, topSkills (array of strings), gaps (array of strings), reasoning, recommendations (array of strings)}
+9. aiAnalysis: {
+    score: number (0-100 based on job fit), 
+    summary: string (detailed 3-4 sentence professional summary of the candidate's profile), 
+    topSkills: string[] (most relevant skills for this specific job), 
+    gaps: string[] (missing skills or experience required by the JD), 
+    reasoning: string (deep logical explanation of why the candidate received this score), 
+    recommendations: string[] (3-5 specific actionable steps or career advice for the candidate)
+   }
 10. status: "Shortlisted" (score >= 80), "Screening" (60-79), or "Rejected" (< 60)
 
 CRITICAL: 
+- Be extremely detailed in 'reasoning' and 'summary'. Avoid generic phrases.
+- Analyze the 'experience' against the 'JOB DESCRIPTION' requirements specifically.
 - Use EXACTLY the enum values specified above.
 - Ensure all fields are present even if empty (use [] for arrays, "Unknown" for strings).
-- For experience and education, ensure all sub-fields like description or startYear are provided.
 - Return ONLY the JSON array.
 `;
 

@@ -192,11 +192,11 @@ export default function JobsPage() {
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = !searchTerm || 
-      job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (job.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (job.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = !typeFilter || job.type === typeFilter;
-    const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
+    const matchesLocation = !locationFilter || (job.location || "").toLowerCase().includes(locationFilter.toLowerCase());
     
     return matchesSearch && matchesType && matchesLocation;
   });

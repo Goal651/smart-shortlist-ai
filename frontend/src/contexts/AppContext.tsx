@@ -13,15 +13,24 @@ import { aiService } from '@/services/ai';
 // Helper function to map backend Candidate to frontend CandidateWithUI
 const mapCandidateToUI = (candidate: Candidate): CandidateWithUI => {
   const aiReasoning: AIReasoning = {
-    strengths: candidate.top_skills,
-    gaps: candidate.gaps,
-    recommendation: candidate.summary,
+    strengths: candidate.aiAnalysis?.topSkills || candidate.top_skills || [],
+    gaps: candidate.aiAnalysis?.gaps || candidate.gaps || [],
+    recommendation: candidate.aiAnalysis?.summary || candidate.summary || "",
+    insights: candidate.aiAnalysis?.reasoning || "",
+    recommendations: candidate.aiAnalysis?.recommendations || [],
   };
 
   return {
     ...candidate,
+    email: candidate.email || (candidate as any).email_address || "", // Handle potential different field names
+    bio: candidate.bio || "",
+    headline: candidate.headline || "",
+    score: candidate.aiAnalysis?.score ?? candidate.score ?? 0,
+    summary: candidate.aiAnalysis?.summary || candidate.summary || "",
+    top_skills: candidate.aiAnalysis?.topSkills || candidate.top_skills || [],
+    gaps: candidate.aiAnalysis?.gaps || candidate.gaps || [],
     aiReasoning,
-    source: candidate.email ? "External PDF" : "CSV Upload", // Simple source detection
+    source: (candidate.email || (candidate as any).email_address) ? "External PDF" : "CSV Upload",
   };
 };
 

@@ -206,6 +206,39 @@ export class ApplicationController {
 
             try {
               await candidate.save();
+              
+              // Create corresponding Application record for tracking
+              const application = new Application({
+                jobId: job._id,
+                candidateId: candidate._id,
+                firstName: candidate.firstName,
+                lastName: candidate.lastName,
+                email: candidate.email,
+                resumeFile: {
+                  filename: `${Date.now()}-${originalFile.originalName}`,
+                  originalName: originalFile.originalName,
+                  buffer: originalFile.buffer,
+                  mimeType: originalFile.mimetype,
+                  size: originalFile.size
+                },
+                status: (candidate.aiAnalysis?.score || 0) >= 80 ? 'Shortlisted' : 'Screening',
+                screeningResult: {
+                  score: candidate.aiAnalysis?.score || 0,
+                  summary: candidate.aiAnalysis?.summary || '',
+                  topSkills: candidate.aiAnalysis?.topSkills || [],
+                  gaps: candidate.aiAnalysis?.gaps || [],
+                  reasoning: candidate.aiAnalysis?.reasoning || ''
+                },
+                extractedText: originalFile.text,
+                submittedAt: new Date(),
+                screenedAt: new Date()
+              });
+              await application.save();
+              
+              // Link application back to candidate
+              candidate.applicationId = application._id as any;
+              await candidate.save();
+
               totalCandidates.push(candidate);
               
               candidateScores.push({

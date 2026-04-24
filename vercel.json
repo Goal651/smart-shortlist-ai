@@ -1,0 +1,18 @@
+{
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "routePrefix": "/",
+      "framework": "nextjs",
+      "installCommand": "pnpm install",
+      "buildCommand": "pnpm build"
+    },
+    "backend": {
+      "entrypoint": "backend",
+      "routePrefix": "/_/backend",
+      "installCommand": "npm install",
+      "buildCommand": "npm run build",
+      "startCommand": "npm run start"
+    }
+  }
+}

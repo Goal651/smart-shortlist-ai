@@ -32,7 +32,7 @@ export function RecentJobsTable({ currentPage, onTotalPagesChange }: RecentJobsT
           const jobCandidates = response.success && response.data ? response.data : [];
           
           const avgScore = jobCandidates.length > 0 
-            ? Math.round(jobCandidates.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / jobCandidates.length)
+            ? Math.round(jobCandidates.reduce((sum: number, c: any) => sum + (c.aiAnalysis?.score ?? c.score ?? 0), 0) / jobCandidates.length)
             : 0;
           
           return {
