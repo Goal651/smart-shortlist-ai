@@ -4,8 +4,6 @@ backend/node_modules/
 frontend/node_modules/
 
 # Environment Variables
-.env
-.env.local
 backend/.env
 frontend/.env
 
@@ -21,3 +19,4 @@ yarn-error.log*
 
 # OS files
 .DS_Store
+config.bat
