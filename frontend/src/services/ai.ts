@@ -26,6 +26,29 @@ class AIService {
   }
 
   /**
+   * Run AI screening on uploaded resumes for a custom JD
+   */
+  async customScreenResumes(customJD: string, jdFile: File | null, files: File[]): Promise<ApiResponse<ScreeningResponse>> {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('resumes', file);
+    });
+    if (customJD) {
+      formData.append('customJD', customJD);
+    }
+    if (jdFile) {
+      formData.append('jdFile', jdFile);
+    }
+
+    const response = await apiClient.postFormData<ScreeningResponse>(
+      '/applications/custom-screen',
+      formData,
+      { timeout: 120000 }
+    );
+    return response;
+  }
+
+  /**
    * Upload single file (avatar, document, etc.)
    */
   async uploadFile(

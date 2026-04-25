@@ -17,7 +17,8 @@ router.post('/', upload.single('resume'), ApplicationController.submitApplicatio
 // Application management (Owner)
 router.get('/', authenticateToken, requireOwner, ApplicationController.getApplications);
 
-// Screening routes - using consistent /jobs/:jobId pattern
+// Screening routes
+router.post('/custom-screen', authenticateToken, requireOwner, upload.fields([{ name: 'resumes', maxCount: 50 }, { name: 'jdFile', maxCount: 1 }]), ApplicationController.customBulkScreen);
 router.post('/jobs/:jobId/bulk-upload', authenticateToken, requireOwner, upload.array('resumes', 50), ApplicationController.bulkScreen);
 router.post('/jobs/:jobId/screen-all', authenticateToken, requireOwner, ApplicationController.screenAllExistingApplications);
 

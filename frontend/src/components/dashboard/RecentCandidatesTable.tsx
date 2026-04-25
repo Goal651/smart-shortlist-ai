@@ -9,6 +9,7 @@ import { useJobs } from '@/hooks/useApi';
 import { CandidateWithUI } from '@/types/request';
 import { candidateService } from '@/services/candidate';
 import { mapCandidateToUI } from '@/contexts/AppContext';
+import { Select } from "@/components/ui/Select";
 
 const PAGE_SIZE = 5;
 
@@ -70,15 +71,16 @@ export function RecentCandidatesTable({ currentPage, onTotalPagesChange }: Recen
         <Typography variant="h2" className="text-lg font-medium text-gray-900">Recent Candidates</Typography>
         <div className="flex items-center space-x-2">
           <Typography variant="caption" className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Show Top</Typography>
-          <select 
-            value={matchLimit} 
-            onChange={(e) => setMatchLimit(Number(e.target.value))}
-            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
-          >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-          </select>
+          <Select 
+            options={[
+              { label: '5', value: '5' },
+              { label: '10', value: '10' },
+              { label: '20', value: '20' },
+            ]}
+            value={matchLimit.toString()} 
+            onChange={(val) => setMatchLimit(Number(val))}
+            className="w-20 [&>button]:h-8 [&>button]:py-1 [&>button]:px-3 [&>button]:text-xs [&>button]:rounded-lg"
+          />
         </div>
       </div>
       <div className="w-full bg-white rounded-2xl border border-gray-100 overflow-hidden">
