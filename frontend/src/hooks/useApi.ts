@@ -213,6 +213,25 @@ export const useAI = () => {
     }
   }, []);
 
+  // Screen resumes against custom JD
+  const customScreenResumes = useCallback(async (customJD: string, jdFile: File | null, files: File[]) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const response = await aiService.customScreenResumes(customJD, jdFile, files);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Custom screening failed');
+      }
+
+      return response.data;
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  }, []);
+
   // Upload avatar
   const uploadAvatar = useCallback(async (file: File) => {
     return await uploadFile('/upload/user', file);
@@ -227,6 +246,7 @@ export const useAI = () => {
     uploadFile,
     uploadMultipleFiles,
     screenResumes,
+    customScreenResumes,
     uploadAvatar,
     uploadGenericFile,
     uploadProgress,

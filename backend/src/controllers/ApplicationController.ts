@@ -294,6 +294,232 @@ export class ApplicationController {
   }
 
   /**
+   * Owner: Bulk screen resumes against a custom JD (text or file)
+   */
+  static async customBulkScreen(req: Request, res: Response) {
+    try {
+      const { customJD } = req.body;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const resumes = files['resumes'] || [];
+      const jdFileArray = files['jdFile'] || [];
+      const jdFile = jdFileArray[0];
+      
+      if (!resumes || resumes.length === 0) {
+        return res.status(400).json({ error: "No resumes uploaded." });
+      }
+
+      let jobDescription = customJD;
+      let jobTitle = "Custom Screening Analysis";
+
+      if (jdFile) {
+        jobDescription = await ProcessingService.extractText(jdFile.buffer, jdFile.originalname);
+        jobTitle = jdFile.originalname.split('.')[0] || jobTitle;
+      }
+
+      if (!jobDescription || jobDescription.trim() === '') {
+        return res.status(400).json({ error: "Job description is required either via text or file." });
+      }
+
+      // Create a job on the fly
+      const job = new Job({
+        title: jobTitle,
+        department: "External Sourcing",
+        location: "Remote",
+        type: "Full-time",
+        description: jobDescription,
+        requirements: [],
+        ownerId: (req as any).user?.userId || new mongoose.Types.ObjectId(),
+        isActive: true
+      });
+      await job.save();
+
+      console.log('📁 Processing', resumes.length, 'files for custom job:', job.title);
+
+      // 1. Text Extraction
+      let resumeData: { originalName: string; text: string; buffer: Buffer; mimetype: string; size: number }[] = [];
+      
+      for (const file of resumes) {
+        try {
+          const text = await ProcessingService.extractText(file.buffer, file.originalname);
+          resumeData.push({ 
+            originalName: file.originalname, 
+            text, 
+            buffer: file.buffer, 
+            mimetype: file.mimetype, 
+            size: file.size 
+          });
+        } catch (err: any) {
+          console.error(`❌ Failed to extract text from ${file.originalname}:`, err.message);
+        }
+      }
+
+      // Create analysis record
+      const analysisRecord = new Analysis({
+        jobId: job._id,
+        jobTitle: job.title,
+        jobDescription: job.description,
+        fileCount: resumes.length,
+        candidateCount: 0,
+        topScore: 0,
+        screened: false,
+        results: []
+      });
+      await analysisRecord.save();
+
+      const totalCandidates: any[] = [];
+      const candidateScores: any[] = [];
+      const BATCH_SIZE = 5;
+
+      for (let i = 0; i < resumeData.length; i += BATCH_SIZE) {
+        const batch = resumeData.slice(i, i + BATCH_SIZE);
+        const batchTexts = batch.map(r => r.text);
+        
+        try {
+          const screeningResults = await GeminiService.screenResumes(job.description, batchTexts);
+          
+          for (let j = 0; j < batch.length; j++) {
+            const resData = screeningResults[j];
+            const originalFile = batch[j];
+
+            if (!resData) continue;
+
+            const candidate = new Candidate({
+              jobId: job._id,
+              firstName: resData.firstName || 'Unknown',
+              lastName: resData.lastName || 'Candidate',
+              email: resData.email?.toLowerCase().trim() || `unknown-${Date.now()}@example.com`,
+              headline: resData.headline || job.title || 'Professional',
+              bio: resData.bio || '',
+              location: resData.location || 'Remote',
+              skills: (resData.skills || []).map((s: any) => ({
+                name: s.name || 'Unknown',
+                level: ['Beginner', 'Intermediate', 'Advanced', 'Expert'].includes(s.level) ? s.level : 'Intermediate',
+                yearsOfExperience: Number(s.yearsOfExperience) || 0
+              })),
+              languages: (resData.languages || []).map((l: any) => ({
+                name: l.name || 'Unknown',
+                proficiency: ['Basic', 'Conversational', 'Fluent', 'Native'].includes(l.proficiency) ? l.proficiency : 'Conversational'
+              })),
+              experience: (resData.experience || []).map((e: any) => ({
+                company: e.company || 'Unknown',
+                role: e.role || 'Professional',
+                startDate: e.startDate || 'Unknown',
+                endDate: e.endDate || 'Present',
+                description: e.description || '',
+                technologies: e.technologies || [],
+                isCurrent: !!e.isCurrent
+              })),
+              education: (resData.education || []).map((edu: any) => ({
+                institution: edu.institution || 'Unknown',
+                degree: edu.degree || 'Degree',
+                fieldOfStudy: edu.fieldOfStudy || 'General',
+                startYear: Number(edu.startYear) || 2000,
+                endYear: Number(edu.endYear) || 2024
+              })),
+              availability: {
+                status: ['Available', 'Open to Opportunities', 'Not Available'].includes(resData.availability?.status) 
+                  ? resData.availability.status 
+                  : 'Available',
+                type: ['Full-time', 'Part-time', 'Contract'].includes(resData.availability?.type) 
+                  ? resData.availability.type 
+                  : 'Full-time'
+              },
+              socialLinks: resData.socialLinks || {},
+              aiAnalysis: {
+                score: Number(resData.aiAnalysis?.score) || 0,
+                summary: resData.aiAnalysis?.summary || 'No summary',
+                topSkills: resData.aiAnalysis?.topSkills || [],
+                gaps: resData.aiAnalysis?.gaps || [],
+                reasoning: resData.aiAnalysis?.reasoning || '',
+                recommendations: resData.aiAnalysis?.recommendations || []
+              },
+              status: ['Applied', 'Screening', 'Shortlisted', 'Rejected'].includes(resData.status) 
+                ? resData.status 
+                : 'Screening',
+              extractedText: originalFile.text,
+              screenedAt: new Date()
+            });
+
+            try {
+              await candidate.save();
+              
+              const application = new Application({
+                jobId: job._id,
+                candidateId: candidate._id,
+                firstName: candidate.firstName,
+                lastName: candidate.lastName,
+                email: candidate.email,
+                resumeFile: {
+                  filename: `${Date.now()}-${originalFile.originalName}`,
+                  originalName: originalFile.originalName,
+                  buffer: originalFile.buffer,
+                  mimeType: originalFile.mimetype,
+                  size: originalFile.size
+                },
+                status: (candidate.aiAnalysis?.score || 0) >= 80 ? 'Shortlisted' : 'Screening',
+                screeningResult: {
+                  score: candidate.aiAnalysis?.score || 0,
+                  summary: candidate.aiAnalysis?.summary || '',
+                  topSkills: candidate.aiAnalysis?.topSkills || [],
+                  gaps: candidate.aiAnalysis?.gaps || [],
+                  reasoning: candidate.aiAnalysis?.reasoning || ''
+                },
+                extractedText: originalFile.text,
+                submittedAt: new Date(),
+                screenedAt: new Date()
+              });
+              await application.save();
+              
+              candidate.applicationId = application._id as any;
+              await candidate.save();
+
+              totalCandidates.push(candidate);
+              
+              candidateScores.push({
+                candidateId: candidate._id as any,
+                email: candidate.email,
+                name: `${candidate.firstName} ${candidate.lastName}`,
+                score: candidate.aiAnalysis?.score || 0,
+                summary: candidate.aiAnalysis?.summary || 'No summary available',
+                topSkills: candidate.aiAnalysis?.topSkills || [],
+                gaps: candidate.aiAnalysis?.gaps || []
+              });
+            } catch (saveErr: any) {
+              console.error(`❌ Failed to save custom candidate ${resData.firstName}:`, saveErr.message);
+            }
+          }
+        } catch (error: any) {
+          console.error(`❌ Custom Batch screening failed:`, error.message);
+        }
+      }
+
+      const topScore = totalCandidates.reduce((max, c) => Math.max(max, c.aiAnalysis?.score || 0), 0);
+      const averageScore = totalCandidates.length > 0 
+        ? totalCandidates.reduce((sum, c) => sum + (c.aiAnalysis?.score || 0), 0) / totalCandidates.length 
+        : 0;
+
+      analysisRecord.candidateCount = totalCandidates.length;
+      analysisRecord.topScore = topScore;
+      analysisRecord.averageScore = averageScore;
+      analysisRecord.results = candidateScores;
+      analysisRecord.screened = true;
+      analysisRecord.completedAt = new Date();
+      await analysisRecord.save();
+
+      res.json({ 
+        processed: resumes.length,
+        candidates: totalCandidates.sort((a, b) => (b.aiAnalysis?.score || 0) - (a.aiAnalysis?.score || 0)),
+        analysis: analysisRecord,
+        jobId: job._id
+      });
+
+    } catch (error) {
+      console.error('❌ Custom Bulk Screening Error:', error);
+      res.status(500).json({ error: "Screening process failed." });
+    }
+  }
+
+  /**
    * Owner: Get applications with filters
    */
   static async getApplications(req: Request, res: Response) {

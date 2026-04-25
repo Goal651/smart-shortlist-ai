@@ -223,8 +223,8 @@ function UploadPageContent() {
   const [selectedAnalysisDetail, setSelectedAnalysisDetail] = useState<AnalysisDetail | null>(null);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
 
-  const { jobs } = useJobs();
-  const { screenResumes, uploadProgress, isUploading } = useAI();
+  const { jobs, fetchJobs } = useJobs();
+  const { screenResumes, customScreenResumes, uploadProgress, isUploading } = useAI();
   const { showToast } = useToast();
 
   const systemJobOptions = jobs.map(job => ({
@@ -290,13 +290,32 @@ function UploadPageContent() {
   }, [searchParams]);
 
   const handleRunScreening = async () => {
-    if (!selectedJob && !customJD) {
+    if (jobSource === "system" && !selectedJob) {
       showToast({
         title: "Missing job details",
-        description: "Please select a job or provide a custom job description.",
+        description: "Please select a job.",
         variant: "error",
       });
       return;
+    }
+
+    if (jobSource === "custom") {
+      if (customJDMode === "paste" && !customJD) {
+        showToast({
+          title: "Missing job details",
+          description: "Please provide a custom job description.",
+          variant: "error",
+        });
+        return;
+      }
+      if (customJDMode === "upload" && !jdFile) {
+        showToast({
+          title: "Missing job details",
+          description: "Please upload a custom job description file.",
+          variant: "error",
+        });
+        return;
+      }
     }
 
     if (files.length === 0) {
@@ -316,7 +335,16 @@ function UploadPageContent() {
         duration: 3000,
       });
 
-      const response = await screenResumes(selectedJob, files);
+      let response;
+      if (jobSource === "system") {
+        response = await screenResumes(selectedJob, files);
+      } else {
+        response = await customScreenResumes(customJD, jdFile, files);
+        // Refresh jobs since a custom job was created on the backend
+        if (response && response.jobId) {
+          fetchJobs();
+        }
+      }
 
       if (response && response.candidates) {
         setScreenedCandidates(response.candidates);
@@ -466,16 +494,17 @@ function UploadPageContent() {
                   <Typography variant="body" className="text-sm font-semibold text-gray-900">Top {matchLimit} Matches</Typography>
                   <div className="flex items-center space-x-2">
                     <Typography variant="caption" className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Show Top</Typography>
-                    <select
-                      value={matchLimit}
-                      onChange={(e) => setMatchLimit(Number(e.target.value))}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
-                    >
-                      <option value={3}>3</option>
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                    </select>
+                    <Select 
+                      options={[
+                        { label: '3', value: '3' },
+                        { label: '5', value: '5' },
+                        { label: '10', value: '10' },
+                        { label: '20', value: '20' },
+                      ]}
+                      value={matchLimit.toString()} 
+                      onChange={(val) => setMatchLimit(Number(val))}
+                      className="w-20 [&>button]:h-8 [&>button]:py-1 [&>button]:px-3 [&>button]:text-xs [&>button]:rounded-lg"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -986,16 +1015,17 @@ function UploadPageContent() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Typography variant="caption" className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Show Top</Typography>
-                  <select
-                    value={matchLimit}
-                    onChange={(e) => setMatchLimit(Number(e.target.value))}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
-                  >
-                    <option value={3}>3</option>
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                  </select>
+                  <Select 
+                    options={[
+                      { label: '3', value: '3' },
+                      { label: '5', value: '5' },
+                      { label: '10', value: '10' },
+                      { label: '20', value: '20' },
+                    ]}
+                    value={matchLimit.toString()} 
+                    onChange={(val) => setMatchLimit(Number(val))}
+                    className="w-20 [&>button]:h-8 [&>button]:py-1 [&>button]:px-3 [&>button]:text-xs [&>button]:rounded-lg"
+                  />
                 </div>
               </div>
               <div className="space-y-3">
