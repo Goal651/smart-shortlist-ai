@@ -16,6 +16,8 @@ import { useJobs } from "@/hooks/useApi";
 import { CandidateWithUI } from "@/types/request";
 import { candidateService } from "@/services/candidate";
 import { mapCandidateToUI } from "@/contexts/AppContext";
+import * as XLSX from "xlsx";
+import { useToast } from "@/contexts/ToastContext";
 
 // Converts a raw CandidateWithUI into the Applicant shape the table needs,
 // while preserving ALL fields the ApplicantDetailsModal uses so both pages
@@ -86,6 +88,7 @@ export default function CandidatesPage() {
   const [allCandidates, setAllCandidates] = useState<CandidateWithUI[]>([]);
   const [selectedApplicant, setSelectedApplicant] = useState<ReturnType<typeof convertToApplicant> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { showToast } = useToast();
 
   const { jobs } = useJobs();
 
@@ -107,6 +110,37 @@ export default function CandidatesPage() {
   const handleOpenModal = (applicant: Applicant) => {
     setSelectedApplicant(applicant as ReturnType<typeof convertToApplicant>);
     setIsModalOpen(true);
+  };
+
+  const handleExportGlobalPool = () => {
+    if (!allCandidates || allCandidates.length === 0) {
+      showToast({
+        title: "No data",
+        description: "No candidates to export.",
+        variant: "error"
+      });
+      return;
+    }
+
+    const data = allCandidates.map(c => {
+      const job = jobs.find(j => j._id === c.jobId);
+      return {
+        "Name": `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.name || "Candidate",
+        "Email": c.email || "N/A",
+        "Job Title": job?.title || "Unknown",
+        "Score": c.aiAnalysis?.score || c.score || 0,
+        "Status": c.status || "Unknown",
+        "Summary": c.aiAnalysis?.summary || "N/A",
+        "Top Skills": c.aiAnalysis?.topSkills?.join(", ") || "N/A",
+        "Gaps": c.aiAnalysis?.gaps?.join(", ") || "N/A",
+        "Date": new Date(c.createdAt || Date.now()).toLocaleDateString()
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Global Pool");
+    XLSX.writeFile(wb, `Global_Pool_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const PAGE_SIZE = 10;
@@ -132,7 +166,11 @@ export default function CandidatesPage() {
             Centralized database for all screened candidates
           </Typography>
         </div>
-        <Button variant="outline" className="h-11 shadow-none px-6 border-gray-100 font-medium text-gray-600 hover:bg-gray-50">
+        <Button 
+          onClick={handleExportGlobalPool}
+          variant="outline" 
+          className="h-11 shadow-none px-6 border-gray-100 font-medium text-gray-600 hover:bg-gray-50"
+        >
           Export global pool
         </Button>
       </div>

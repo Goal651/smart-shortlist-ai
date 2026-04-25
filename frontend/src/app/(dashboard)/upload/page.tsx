@@ -1,4 +1,5 @@
 "use client";
+import * as XLSX from "xlsx";
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -289,6 +290,33 @@ function UploadPageContent() {
       });
   }, [searchParams]);
 
+  const handleExportRanking = () => {
+    if (!screenedCandidates || screenedCandidates.length === 0) {
+      showToast({
+        title: "No data",
+        description: "No candidates to export.",
+        variant: "error"
+      });
+      return;
+    }
+
+    const data = screenedCandidates.map(c => ({
+      "Name": `${c.firstName} ${c.lastName}`.trim() || c.name || "Candidate",
+      "Email": c.email || "N/A",
+      "Score": c.aiAnalysis?.score || c.score || 0,
+      "Status": c.status || "Unknown",
+      "Summary": c.aiAnalysis?.summary || "N/A",
+      "Top Skills": c.aiAnalysis?.topSkills?.join(", ") || "N/A",
+      "Gaps": c.aiAnalysis?.gaps?.join(", ") || "N/A",
+      "Date": new Date(c.createdAt || Date.now()).toLocaleDateString()
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ranking Report");
+    XLSX.writeFile(wb, `Ranking_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const handleRunScreening = async () => {
     if (jobSource === "system" && !selectedJob) {
       showToast({
@@ -458,7 +486,7 @@ function UploadPageContent() {
               >
                 New Batch Upload
               </Button>
-              <Button className="h-10 shadow-none px-6 font-medium transition-none">Export Ranking Report</Button>
+              <Button onClick={handleExportRanking} className="h-10 shadow-none px-6 font-medium transition-none">Export Ranking Report</Button>
             </div>
           </div>
 
