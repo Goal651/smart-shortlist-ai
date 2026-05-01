@@ -32,7 +32,7 @@ export class ApplicationController {
 
       // Create application
       const application = new Application({
-        jobId: new mongoose.Types.ObjectId(jobId),
+        jobId: new mongoose.Types.ObjectId(jobId as string),
         firstName,
         lastName,
         email: email.toLowerCase().trim(),
@@ -684,7 +684,7 @@ export class ApplicationController {
 
       // Explicitly cast jobId to ObjectId to ensure query matches correctly
       const query = { 
-        jobId: new mongoose.Types.ObjectId(jobId), 
+        jobId: new mongoose.Types.ObjectId(jobId as string), 
         status: 'Applied' 
       };
       
