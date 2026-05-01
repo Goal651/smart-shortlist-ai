@@ -120,7 +120,7 @@ export default function JobDetailPage() {
   const handleScreenAll = async () => {
     setIsScreeningAll(true);
     try {
-      const res = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${id}/screen-all`);
+      const res = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${id}/screen-all`, {});
       if (res.success && res.data) {
         showToast({
           title: "Screening Started",
@@ -165,7 +165,7 @@ export default function JobDetailPage() {
   const handleScreen = async (appId: string) => {
     setScreeningId(appId);
     try {
-      const res = await apiClient.post(`/applications/${appId}/screen`);
+      const res = await apiClient.post(`/applications/${appId}/screen`, {});
       if (res.success) await fetchApplications();
     } finally {
       setScreeningId(null);

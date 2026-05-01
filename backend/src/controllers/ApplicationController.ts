@@ -674,18 +674,26 @@ export class ApplicationController {
     console.log('🎯 screenAllExistingApplications called with jobId:', req.params.jobId);
     try {
       const { jobId } = req.params;
+      console.log(`🔍 Searching for 'Applied' applications for jobId: ${jobId}`);
+      
       const job = await Job.findById(jobId);
       if (!job) {
-        console.log('❌ Job not found:', jobId);
+        console.log('❌ Job not found in database:', jobId);
         return res.status(404).json({ error: "Job not found" });
       }
 
-      const applications = await Application.find({ jobId, status: 'Applied' });
-      console.log(`📋 Found ${applications.length} applications with status 'Applied' for job ${jobId}`);
+      // Explicitly cast jobId to ObjectId to ensure query matches correctly
+      const query = { 
+        jobId: new mongoose.Types.ObjectId(jobId), 
+        status: 'Applied' 
+      };
+      
+      const applications = await Application.find(query);
+      console.log(`📋 Found ${applications.length} applications with status 'Applied' for job: ${job.title} (${jobId})`);
       
       if (applications.length === 0) {
-        console.log('⚠️ No pending applications to screen');
-        return res.status(400).json({ error: "No pending applications to screen for this job" });
+        console.log('⚠️ No pending applications found matching the criteria.');
+        return res.status(400).json({ error: "No pending applications to screen for this job. Make sure candidates have 'Applied' status." });
       }
 
       const screenedCandidates = [];

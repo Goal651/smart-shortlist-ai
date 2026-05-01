@@ -377,7 +377,7 @@ export default function JobsPage() {
 
 
 
-      const response = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${jobId}/screen-all`);
+      const response = await apiClient.post<{ analysisId: string }>(`/applications/jobs/${jobId}/screen-all`, {});
 
 
 
